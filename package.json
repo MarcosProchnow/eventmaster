@@ -1,0 +1,9 @@
+{
+  "name": "eventmaster",
+  "private": true,
+  "version": "0.0.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "check": "echo 'Fase 0: nenhum pacote ainda'"
+  }
+}
