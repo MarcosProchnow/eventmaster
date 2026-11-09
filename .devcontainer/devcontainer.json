@@ -1,0 +1,9 @@
+{
+  "name": "EventMaster",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:24",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "corepack enable && pnpm install",
+  "forwardPorts": [3000, 5173]
+}
