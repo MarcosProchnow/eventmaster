@@ -2,8 +2,10 @@
   "name": "eventmaster",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@12.16.1",
   "engines": { "node": ">=24" },
   "scripts": {
-    "check": "echo 'Fase 0: nenhum pacote ainda'"
+    "check": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test"
   }
 }
