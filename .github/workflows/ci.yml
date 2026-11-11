@@ -36,3 +36,7 @@ jobs:
       - run: pnpm run test
       - name: Contrato OpenAPI atualizado
         run: pnpm --filter @eventmaster/api run openapi:generate && git diff --exit-code apps/api/openapi.json
+      - name: Cliente tipado atualizado
+        run: pnpm --filter @eventmaster/api-client run generate && git diff --exit-code packages/api-client/src/schema.d.ts
+      - name: Build do front-end
+        run: pnpm --filter @eventmaster/web run build

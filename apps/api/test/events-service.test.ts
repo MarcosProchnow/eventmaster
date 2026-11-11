@@ -39,6 +39,9 @@ class InMemoryEventRepository implements EventRepository {
     const items = [...this.events.values()].filter((e) => e.status === "published");
     return { items: items.slice(0, filter.pageSize), total: items.length };
   }
+  async listByOrganizer(organizerId: string) {
+    return [...this.events.values()].filter((e) => e.organizerId === organizerId);
+  }
   async countTicketTypes(eventId: string) {
     return this.ticketTypes.filter((t) => t.eventId === eventId).length;
   }
@@ -158,6 +161,16 @@ describe("autorização por objeto (BOLA)", () => {
     await expect(service.listTicketTypes(null, event.id)).rejects.toBeInstanceOf(NotFoundError);
     expect((await service.getEvent(organizer, event.id)).id).toBe(event.id);
     expect((await service.getEvent(admin, event.id)).id).toBe(event.id);
+  });
+});
+
+describe("eventos do organizador", () => {
+  it("lista só os próprios, inclusive rascunhos, e recusa participante", async () => {
+    const mine = await service.createEvent(organizer, input);
+    await service.createEvent(otherOrganizer, input);
+    const list = await service.listMine(organizer);
+    expect(list.map((e) => e.id)).toEqual([mine.id]);
+    await expect(service.listMine(attendee)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 

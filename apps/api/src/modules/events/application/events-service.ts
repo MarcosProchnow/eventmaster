@@ -49,6 +49,14 @@ export class EventsService {
     return this.#repo.listPublished(filter);
   }
 
+  /** Eventos do próprio organizador, em qualquer status (painel do organizador). */
+  async listMine(actor: Actor): Promise<Event[]> {
+    if (actor.role !== "organizer" && actor.role !== "admin") {
+      throw new ForbiddenError("Apenas organizadores têm eventos próprios");
+    }
+    return this.#repo.listByOrganizer(actor.id);
+  }
+
   /** Rascunhos e cancelados só são visíveis ao dono ou a um admin. */
   async getEvent(actor: Actor | null, id: string): Promise<Event> {
     const event = await this.#repo.findById(id);

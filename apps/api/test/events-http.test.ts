@@ -129,6 +129,16 @@ describe("API de eventos", () => {
     expect((await app.inject({ url: `/v1/events/${eventId}` })).statusCode).toBe(404);
   });
 
+  it("painel do organizador lista só os próprios eventos, em qualquer status", async () => {
+    const mine = await app.inject({ url: "/v1/organizer/events", cookies: organizer });
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().map((e: { id: string }) => e.id)).toContain(eventId);
+    const theirs = await app.inject({ url: "/v1/organizer/events", cookies: intruder });
+    expect(theirs.json().map((e: { id: string }) => e.id)).not.toContain(eventId);
+    expect((await app.inject({ url: "/v1/organizer/events", cookies: attendee })).statusCode).toBe(403);
+    expect((await app.inject({ url: "/v1/organizer/events" })).statusCode).toBe(401);
+  });
+
   it("participante não cria evento", async () => {
     const res = await post("/v1/events", attendee, body);
     expect(res.statusCode).toBe(403);
