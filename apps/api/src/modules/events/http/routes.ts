@@ -68,6 +68,19 @@ export function eventsRoutes({ service }: Deps): FastifyPluginAsyncZod {
     );
 
     app.get(
+      "/organizer/events",
+      {
+        schema: {
+          tags,
+          summary: "Lista os eventos do organizador autenticado, em qualquer status",
+          security,
+          response: { 200: z.array(eventResponse), 401: errorResponse, 403: errorResponse },
+        },
+      },
+      async (request) => (await service.listMine(requireActor(request.actor))).map(toEventDto),
+    );
+
+    app.get(
       "/events/:id",
       {
         schema: {

@@ -34,6 +34,8 @@ export interface EventRepository {
   findById(id: string): Promise<Event | null>;
   update(id: string, patch: EventPatch): Promise<Event>;
   listPublished(filter: EventFilter): Promise<{ items: Event[]; total: number }>;
+  /** Todos os eventos de um organizador, inclusive rascunhos e cancelados. */
+  listByOrganizer(organizerId: string): Promise<Event[]>;
   countTicketTypes(eventId: string): Promise<number>;
   listTicketTypes(eventId: string): Promise<TicketType[]>;
   /** Lança ConflictError se já existir um tipo com o mesmo nome no evento. */

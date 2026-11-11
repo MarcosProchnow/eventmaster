@@ -1,4 +1,4 @@
-import { and, asc, count, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, sql } from "drizzle-orm";
 import type { Db } from "../../../db/client.ts";
 import { events, ticketTypes } from "../../../db/schema.ts";
 import { ConflictError, NotFoundError } from "../../../shared/errors.ts";
@@ -68,6 +68,16 @@ export class DrizzleEventRepository implements EventRepository {
       .offset((filter.page - 1) * filter.pageSize);
     const [totals] = await this.#db.select({ total: count() }).from(events).where(where);
     return { items: rows.map(toEvent), total: totals?.total ?? 0 };
+  }
+
+  async listByOrganizer(organizerId: string): Promise<Event[]> {
+    const rows = await this.#db
+      .select()
+      .from(events)
+      .where(eq(events.organizerId, organizerId))
+      .orderBy(desc(events.createdAt))
+      .limit(200);
+    return rows.map(toEvent);
   }
 
   async countTicketTypes(eventId: string): Promise<number> {
