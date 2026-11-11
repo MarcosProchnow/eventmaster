@@ -13,16 +13,7 @@ const app = await buildApp({
   logger: true,
 });
 
-// Libera o estoque de reservas vencidas. Na Fase 6 isso passa para o worker.
-const expireTimer = setInterval(() => {
-  app.jobs
-    .expireOrders()
-    .then((count) => count > 0 && app.log.info({ count }, "reservas expiradas"))
-    .catch((error: unknown) => app.log.error(error, "falha ao expirar reservas"));
-}, 30_000);
-
 async function shutdown(signal: string) {
-  clearInterval(expireTimer);
   app.log.info({ signal }, "encerrando");
   await app.close();
   await pool.end();

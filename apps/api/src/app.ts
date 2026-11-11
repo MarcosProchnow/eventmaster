@@ -55,7 +55,7 @@ const STATUS_BY_CODE: Record<string, number> = {
 
 declare module "fastify" {
   interface FastifyInstance {
-    /** Rotinas periódicas, disparadas por main.ts (e pelo worker na Fase 6). */
+    /** Rotinas periódicas. Em produção quem as agenda é o worker; aqui servem aos testes. */
     jobs: { expireOrders: () => Promise<number> };
   }
 }

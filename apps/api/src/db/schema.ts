@@ -219,6 +219,11 @@ export const notifications = notificationsSchema.table(
   "notifications",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // Um registro por evento do outbox: impede enviar o mesmo e-mail duas vezes.
+    outboxId: uuid("outbox_id")
+      .notNull()
+      .unique()
+      .references(() => outbox.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull(), // identity.users (sem FK)
     type: text("type").notNull(),
     status: text("status").notNull().default("pending"),
