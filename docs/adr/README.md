@@ -16,3 +16,4 @@ Formato inspirado no MADR. Status: Proposto, Aceito ou Substituído.
 | [0010](0010-observabilidade.md) | Observabilidade | Aceito |
 | [0011](0011-configuracao-deploy.md) | Configuração e deploy | Aceito |
 | [0012](0012-testes-fitness-functions.md) | Testes e fitness functions | Aceito |
+| [0013](0013-framework-http-fastify.md) | Fastify como framework HTTP | Aceito |
