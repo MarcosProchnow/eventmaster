@@ -4,7 +4,13 @@ import { loadConfig } from "./shared/config.ts";
 
 const config = loadConfig();
 const pool = createPool(config.databaseUrl);
-const app = await buildApp({ pool, allowDevAuth: config.allowDevAuth, logger: true });
+const app = await buildApp({
+  pool,
+  jwtSecret: config.jwtSecret,
+  webOrigin: config.webOrigin,
+  cookieSecure: config.cookieSecure,
+  logger: true,
+});
 
 async function shutdown(signal: string) {
   app.log.info({ signal }, "encerrando");

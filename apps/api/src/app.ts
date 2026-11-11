@@ -1,3 +1,6 @@
+import cookie from "@fastify/cookie";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -12,12 +15,23 @@ import { createDb } from "./db/client.ts";
 import { EventsService } from "./modules/events/application/events-service.ts";
 import { eventsRoutes } from "./modules/events/http/routes.ts";
 import { DrizzleEventRepository } from "./modules/events/infra/drizzle-event-repository.ts";
-import { makeActorResolver } from "./shared/actor.ts";
+import { AuthService } from "./modules/identity/application/auth-service.ts";
+import { ACCESS_COOKIE, authRoutes } from "./modules/identity/http/routes.ts";
+import { Argon2PasswordHasher } from "./modules/identity/infra/argon2-password-hasher.ts";
+import { DrizzleRefreshTokenStore } from "./modules/identity/infra/drizzle-refresh-token-store.ts";
+import { DrizzleUserRepository } from "./modules/identity/infra/drizzle-user-repository.ts";
+import { JoseAccessToken } from "./modules/identity/infra/jose-access-token.ts";
+import "./shared/actor.ts";
 import { AppError } from "./shared/errors.ts";
 
 export interface AppOptions {
   pool: pg.Pool;
-  allowDevAuth: boolean;
+  jwtSecret: string;
+  /** Origem do front-end autorizada a fazer requisições de escrita. */
+  webOrigin: string;
+  cookieSecure: boolean;
+  /** Tentativas por minuto e por IP em cadastro, login e refresh. */
+  authRateLimitMax?: number;
   logger?: boolean;
 }
 
@@ -28,6 +42,8 @@ const STATUS_BY_CODE: Record<string, number> = {
   conflict: 409,
   business_rule: 422,
 };
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
  * Composition root: monta os adaptadores e injeta as dependências.
@@ -57,6 +73,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       });
     }
     const status = (error as { statusCode?: number }).statusCode;
+    if (status === 429) {
+      return reply.code(429).send({
+        error: { code: "rate_limited", message: "Muitas tentativas. Tente novamente em instantes." },
+      });
+    }
     if (typeof status === "number" && status >= 400 && status < 500) {
       return reply
         .code(status)
@@ -71,23 +92,59 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     reply.code(404).send({ error: { code: "not_found", message: "Rota não encontrada" } }),
   );
 
+  // A API só serve JSON; a CSP das páginas de documentação vem do swagger-ui (staticCSP).
+  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(cookie);
+  // Limite em memória: suficiente para instância única (limitação registrada no ADR 0009).
+  await app.register(rateLimit, { global: false });
+
   await app.register(swagger, {
     openapi: {
       openapi: "3.1.0",
       info: {
         title: "EventMaster API",
-        version: "0.1.0",
+        version: "0.2.0",
         description: "API de gestão de eventos e ingressos.",
       },
-      tags: [{ name: "Eventos" }, { name: "Operação" }],
+      tags: [{ name: "Autenticação" }, { name: "Eventos" }, { name: "Operação" }],
+      components: {
+        securitySchemes: {
+          cookieAuth: { type: "apiKey", in: "cookie", name: ACCESS_COOKIE },
+        },
+      },
     },
     transform: jsonSchemaTransform,
   });
-  await app.register(swaggerUi, { routePrefix: "/docs" });
+  await app.register(swaggerUi, { routePrefix: "/docs", staticCSP: true });
 
   const db = createDb(options.pool);
+  const signer = new JoseAccessToken(options.jwtSecret);
+  const authService = new AuthService({
+    users: new DrizzleUserRepository(db),
+    refreshTokens: new DrizzleRefreshTokenStore(db),
+    hasher: new Argon2PasswordHasher(),
+    signer,
+  });
   const eventsService = new EventsService(new DrizzleEventRepository(db));
-  const resolveActor = makeActorResolver(options.allowDevAuth);
+
+  // Defesa extra contra CSRF: um navegador sempre envia `Origin` em requisições
+  // de escrita vindas de outro site. Clientes sem `Origin` (curl, testes) não
+  // carregam cookies de terceiros.
+  app.addHook("onRequest", async (request, reply) => {
+    const origin = request.headers.origin;
+    if (!SAFE_METHODS.has(request.method) && origin && origin !== options.webOrigin) {
+      return reply
+        .code(403)
+        .send({ error: { code: "forbidden", message: "Origem não permitida" } });
+    }
+  });
+
+  // Identifica o usuário pelo JWT de acesso no cookie httpOnly (ADR 0009).
+  app.decorateRequest("actor", null);
+  app.addHook("onRequest", async (request) => {
+    const token = request.cookies[ACCESS_COOKIE];
+    request.actor = token ? await signer.verify(token) : null;
+  });
 
   app.get("/health", { schema: { tags: ["Operação"], summary: "Liveness" } }, async () => ({
     status: "ok",
@@ -108,7 +165,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
 
-  await app.register(eventsRoutes({ service: eventsService, resolveActor }), { prefix: "/v1" });
+  await app.register(
+    authRoutes({
+      service: authService,
+      cookieSecure: options.cookieSecure,
+      rateLimitMax: options.authRateLimitMax ?? 10,
+    }),
+    { prefix: "/v1" },
+  );
+  await app.register(eventsRoutes({ service: eventsService }), { prefix: "/v1" });
 
   return app;
 }
