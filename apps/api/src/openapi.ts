@@ -8,6 +8,7 @@ const pool = createPool("postgres://unused:unused@localhost:1/unused");
 const app = await buildApp({
   pool,
   jwtSecret: "apenas-para-gerar-o-documento-openapi",
+  webhookSecret: "apenas-para-gerar-o-documento-openapi",
   webOrigin: "http://localhost:5173",
   cookieSecure: false,
 });
