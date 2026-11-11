@@ -1,0 +1,3 @@
+ALTER TABLE "notifications"."notifications" ADD COLUMN "outbox_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "notifications"."notifications" ADD CONSTRAINT "notifications_outbox_id_outbox_id_fk" FOREIGN KEY ("outbox_id") REFERENCES "notifications"."outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "notifications"."notifications" ADD CONSTRAINT "notifications_outbox_id_unique" UNIQUE("outbox_id");

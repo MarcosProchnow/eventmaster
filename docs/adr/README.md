@@ -10,7 +10,7 @@ Formato inspirado no MADR. Status: Proposto, Aceito ou Substituído.
 | [0004](0004-consumo-pelo-front.md) | SPA React com cliente gerado | Aceito |
 | [0005](0005-banco-postgresql.md) | PostgreSQL e Drizzle | Aceito |
 | [0006](0006-concorrencia-estoque.md) | Concorrência do estoque | Aceito |
-| [0007](0007-mensageria-outbox.md) | Outbox com pg-boss | Proposto |
+| [0007](0007-mensageria-outbox.md) | Outbox com pg-boss | Aceito |
 | [0008](0008-pagamento-porta.md) | Pagamento atrás de porta | Aceito |
 | [0009](0009-autenticacao.md) | Autenticação | Aceito |
 | [0010](0010-observabilidade.md) | Observabilidade | Aceito |

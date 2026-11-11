@@ -9,7 +9,7 @@ export default async function setup() {
   const pool = createPool(TEST_URL);
   try {
     // Recria os schemas para começar sempre limpo.
-    for (const s of ["identity", "events", "sales", "payments", "notifications", "drizzle"]) {
+    for (const s of ["identity", "events", "sales", "payments", "notifications", "drizzle", "pgboss"]) {
       await pool.query(`drop schema if exists ${s} cascade`);
     }
     await migrate(createDb(pool), { migrationsFolder: "./drizzle" });
