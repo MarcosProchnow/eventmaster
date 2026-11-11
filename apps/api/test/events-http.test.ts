@@ -1,17 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildApp } from "../src/app.ts";
 import { createPool } from "../src/db/client.ts";
+import { buildTestApp, type Cookies, registerUser, TEST_DATABASE_URL } from "./helpers.ts";
 
-const url =
-  process.env.DATABASE_URL_TEST ??
-  "postgres://eventmaster:eventmaster@localhost:5432/eventmaster_test";
-const pool = createPool(url);
+const pool = createPool(TEST_DATABASE_URL);
 let app: FastifyInstance;
-
-const organizer = { "x-dev-user-id": randomUUID(), "x-dev-role": "organizer" };
-const intruder = { "x-dev-user-id": randomUUID(), "x-dev-role": "organizer" };
+let organizer: Cookies;
+let intruder: Cookies;
+let attendee: Cookies;
 
 // Cidade única por execução, para isolar a listagem de outros testes.
 const city = `Cidade-${randomUUID().slice(0, 8)}`;
@@ -24,17 +21,20 @@ const body = {
 };
 
 beforeAll(async () => {
-  app = await buildApp({ pool, allowDevAuth: true });
+  app = await buildTestApp(pool);
+  organizer = (await registerUser(app, "organizer")).cookies;
+  intruder = (await registerUser(app, "organizer")).cookies;
+  attendee = (await registerUser(app, "attendee")).cookies;
 });
 afterAll(async () => {
   await app.close();
   await pool.end();
 });
 
-const post = (path: string, headers: Record<string, string>, payload?: object) =>
+const post = (path: string, cookies: Cookies, payload?: object) =>
   payload === undefined
-    ? app.inject({ method: "POST", url: path, headers })
-    : app.inject({ method: "POST", url: path, headers, payload });
+    ? app.inject({ method: "POST", url: path, cookies })
+    : app.inject({ method: "POST", url: path, cookies, payload });
 
 describe("API de eventos", () => {
   let eventId: string;
@@ -73,7 +73,7 @@ describe("API de eventos", () => {
     const patch = await app.inject({
       method: "PATCH",
       url: `/v1/events/${eventId}`,
-      headers: intruder,
+      cookies: intruder,
       payload: { title: "Invadido" },
     });
     expect(patch.statusCode).toBe(404);
@@ -122,28 +122,32 @@ describe("API de eventos", () => {
     const patch = await app.inject({
       method: "PATCH",
       url: `/v1/events/${eventId}`,
-      headers: organizer,
+      cookies: organizer,
       payload: { title: "Depois de cancelado" },
     });
     expect(patch.statusCode).toBe(422);
     expect((await app.inject({ url: `/v1/events/${eventId}` })).statusCode).toBe(404);
   });
 
-  it("ignora os cabeçalhos de desenvolvimento quando ALLOW_DEV_AUTH está desligado", async () => {
-    const locked = await buildApp({ pool, allowDevAuth: false });
-    const res = await locked.inject({
+  it("participante não cria evento", async () => {
+    const res = await post("/v1/events", attendee, body);
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("os antigos cabeçalhos de desenvolvimento não autenticam mais", async () => {
+    const res = await app.inject({
       method: "POST",
       url: "/v1/events",
-      headers: organizer,
+      headers: { "x-dev-user-id": randomUUID(), "x-dev-role": "organizer" },
       payload: body,
     });
     expect(res.statusCode).toBe(401);
-    await locked.close();
   });
 
   it("publica o contrato OpenAPI 3.1", async () => {
     const doc = (await app.inject({ url: "/openapi.json" })).json();
     expect(doc.openapi).toBe("3.1.0");
     expect(Object.keys(doc.paths)).toContain("/v1/events/{id}/ticket-types");
+    expect(Object.keys(doc.paths)).toContain("/v1/auth/login");
   });
 });

@@ -1,7 +1,6 @@
-import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { type Actor, requireActor } from "../../../shared/actor.ts";
+import { requireActor } from "../../../shared/actor.ts";
 import type { EventsService } from "../application/events-service.ts";
 import {
   createEventBody,
@@ -19,15 +18,15 @@ import {
 
 interface Deps {
   service: EventsService;
-  resolveActor: (request: FastifyRequest) => Actor | null;
 }
 
 const toDate = (value: string | undefined) => (value === undefined ? undefined : new Date(value));
 
 /** Adaptador de entrada: traduz HTTP para casos de uso. Sem regra de negócio aqui. */
-export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyncZod {
+export function eventsRoutes({ service }: Deps): FastifyPluginAsyncZod {
   return async (app) => {
     const tags = ["Eventos"];
+    const security = [{ cookieAuth: [] }];
 
     app.get(
       "/events",
@@ -52,12 +51,13 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         schema: {
           tags,
           summary: "Cria um evento em rascunho",
+          security,
           body: createEventBody,
           response: { 201: eventResponse, 401: errorResponse, 403: errorResponse, 422: errorResponse },
         },
       },
       async (request, reply) => {
-        const actor = requireActor(resolveActor(request));
+        const actor = requireActor(request.actor);
         const event = await service.createEvent(actor, {
           ...request.body,
           startsAt: new Date(request.body.startsAt),
@@ -77,7 +77,7 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
           response: { 200: eventResponse, 404: errorResponse },
         },
       },
-      async (request) => toEventDto(await service.getEvent(resolveActor(request), request.params.id)),
+      async (request) => toEventDto(await service.getEvent(request.actor, request.params.id)),
     );
 
     app.patch(
@@ -86,13 +86,14 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         schema: {
           tags,
           summary: "Altera um evento",
+          security,
           params: eventIdParams,
           body: updateEventBody,
           response: { 200: eventResponse, 401: errorResponse, 404: errorResponse, 422: errorResponse },
         },
       },
       async (request) => {
-        const actor = requireActor(resolveActor(request));
+        const actor = requireActor(request.actor);
         const { startsAt, endsAt, title, description, venue, city } = request.body;
         const event = await service.updateEvent(actor, request.params.id, {
           ...(title !== undefined && { title }),
@@ -112,13 +113,14 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         schema: {
           tags,
           summary: "Publica um evento em rascunho",
+          security,
           params: eventIdParams,
           response: { 200: eventResponse, 401: errorResponse, 404: errorResponse, 422: errorResponse },
         },
       },
       async (request) =>
         toEventDto(
-          await service.publishEvent(requireActor(resolveActor(request)), request.params.id),
+          await service.publishEvent(requireActor(request.actor), request.params.id),
         ),
     );
 
@@ -128,13 +130,14 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         schema: {
           tags,
           summary: "Cancela um evento",
+          security,
           params: eventIdParams,
           response: { 200: eventResponse, 401: errorResponse, 404: errorResponse, 422: errorResponse },
         },
       },
       async (request) =>
         toEventDto(
-          await service.cancelEvent(requireActor(resolveActor(request)), request.params.id),
+          await service.cancelEvent(requireActor(request.actor), request.params.id),
         ),
     );
 
@@ -149,7 +152,7 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         },
       },
       async (request) => {
-        const list = await service.listTicketTypes(resolveActor(request), request.params.id);
+        const list = await service.listTicketTypes(request.actor, request.params.id);
         return list.map(toTicketTypeDto);
       },
     );
@@ -160,6 +163,7 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         schema: {
           tags,
           summary: "Adiciona um tipo de ingresso ao evento",
+          security,
           params: eventIdParams,
           body: createTicketTypeBody,
           response: {
@@ -172,7 +176,7 @@ export function eventsRoutes({ service, resolveActor }: Deps): FastifyPluginAsyn
         },
       },
       async (request, reply) => {
-        const actor = requireActor(resolveActor(request));
+        const actor = requireActor(request.actor);
         const created = await service.addTicketType(actor, request.params.id, request.body);
         return reply.code(201).send(toTicketTypeDto(created));
       },

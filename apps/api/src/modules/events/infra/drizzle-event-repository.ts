@@ -2,6 +2,7 @@ import { and, asc, count, eq, ilike, sql } from "drizzle-orm";
 import type { Db } from "../../../db/client.ts";
 import { events, ticketTypes } from "../../../db/schema.ts";
 import { ConflictError, NotFoundError } from "../../../shared/errors.ts";
+import { isUniqueViolation } from "../../../shared/pg-errors.ts";
 import type {
   EventFilter,
   EventPatch,
@@ -27,18 +28,6 @@ const toTicketType = (row: TicketTypeRow): TicketType => ({
 
 /** Escapa os curingas do LIKE para tratar a busca do usuário como texto literal. */
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
-
-/** O Drizzle embrulha o erro do driver em `cause`; o código SQLSTATE fica lá. */
-function pgErrorCode(error: unknown): string | undefined {
-  const candidates = [error, (error as { cause?: unknown } | null)?.cause];
-  for (const c of candidates) {
-    const code = (c as { code?: unknown } | null)?.code;
-    if (typeof code === "string") return code;
-  }
-  return undefined;
-}
-
-const UNIQUE_VIOLATION = "23505";
 
 /** Adaptador de saída: implementa a porta EventRepository com Drizzle/PostgreSQL. */
 export class DrizzleEventRepository implements EventRepository {
@@ -103,7 +92,7 @@ export class DrizzleEventRepository implements EventRepository {
       const [row] = await this.#db.insert(ticketTypes).values(data).returning();
       return toTicketType(row!);
     } catch (error) {
-      if (pgErrorCode(error) === UNIQUE_VIOLATION) {
+      if (isUniqueViolation(error)) {
         throw new ConflictError("Já existe um tipo de ingresso com esse nome neste evento");
       }
       throw error;

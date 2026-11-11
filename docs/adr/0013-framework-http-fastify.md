@@ -29,4 +29,4 @@ Estrutura por módulo (Hexagonal): `domain` (regras puras), `application` (casos
 + Entrada inválida e campos desconhecidos são recusados antes do caso de uso; a resposta só contém campos declarados.
 + Casos de uso testados sem banco, com um repositório em memória.
 - Diverge do Express ensinado no curso; os conceitos (rotas, middleware/hooks, tratamento de erros) são os mesmos.
-- **Provisório:** a identificação do usuário usa cabeçalhos `x-dev-user-id`/`x-dev-role`, só com `ALLOW_DEV_AUTH=true` e nunca em produção. Não é autenticação e será substituída na Fase 4 (ADR 0009).
+- A identificação provisória por cabeçalhos usada na Fase 3 foi removida na Fase 4 (ADR 0009).
