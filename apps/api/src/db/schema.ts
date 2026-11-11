@@ -109,6 +109,8 @@ export const orders = sales.table(
     status: text("status").notNull().default("reserved"),
     totalCents: integer("total_cents").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    // Hash do conteúdo do pedido: a mesma chave com outro conteúdo é recusada.
+    requestHash: text("request_hash").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
   },
@@ -119,6 +121,9 @@ export const orders = sales.table(
     ),
     check("orders_total_check", sql`${t.totalCents} >= 0`),
     uniqueIndex("orders_user_idempotency_unique").on(t.userId, t.idempotencyKey),
+    // Acelera a busca por reservas vencidas.
+    index("orders_reserved_expiry_idx").on(t.expiresAt).where(sql`${t.status} = 'reserved'`),
+    index("orders_user_idx").on(t.userId, t.createdAt),
   ],
 );
 
@@ -140,16 +145,20 @@ export const orderItems = sales.table(
   ],
 );
 
-export const tickets = sales.table("tickets", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orderId: uuid("order_id")
-    .notNull()
-    .references(() => orders.id, { onDelete: "cascade" }),
-  ticketTypeId: uuid("ticket_type_id").notNull(),
-  code: text("code").notNull().unique(),
-  checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
-  createdAt: createdAt(),
-});
+export const tickets = sales.table(
+  "tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    ticketTypeId: uuid("ticket_type_id").notNull(),
+    code: text("code").notNull().unique(),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("tickets_order_idx").on(t.orderId)],
+);
 
 // ---------- payments ----------
 export const paymentsSchema = pgSchema("payments");
@@ -163,6 +172,8 @@ export const payments = paymentsSchema.table(
     providerRef: text("provider_ref"),
     status: text("status").notNull().default("pending"),
     amountCents: integer("amount_cents").notNull(),
+    // Instruções devolvidas pelo gateway (código Pix, linha do boleto etc.).
+    instructions: jsonb("instructions").notNull().default({}),
     createdAt: createdAt(),
   },
   (t) => [
@@ -176,6 +187,11 @@ export const payments = paymentsSchema.table(
     uniqueIndex("payments_provider_ref_unique")
       .on(t.providerRef)
       .where(sql`${t.providerRef} is not null`),
+    // No máximo um pagamento pendente por pedido.
+    uniqueIndex("payments_order_pending_unique")
+      .on(t.orderId)
+      .where(sql`${t.status} = 'pending'`),
+    index("payments_order_idx").on(t.orderId),
   ],
 );
 

@@ -79,6 +79,7 @@ describe("constraints do modelo de dados", () => {
       eventId,
       totalCents: 1000,
       idempotencyKey: "chave-1",
+      requestHash: "hash",
       expiresAt: new Date(Date.now() + 15 * 60_000),
     };
     await db.insert(orders).values(values);
@@ -93,6 +94,7 @@ describe("constraints do modelo de dados", () => {
         eventId,
         totalCents: 500,
         idempotencyKey: "chave-pagto",
+        requestHash: "hash",
         expiresAt: new Date(Date.now() + 15 * 60_000),
       })
       .returning();

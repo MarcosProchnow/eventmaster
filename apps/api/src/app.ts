@@ -21,12 +21,22 @@ import { Argon2PasswordHasher } from "./modules/identity/infra/argon2-password-h
 import { DrizzleRefreshTokenStore } from "./modules/identity/infra/drizzle-refresh-token-store.ts";
 import { DrizzleUserRepository } from "./modules/identity/infra/drizzle-user-repository.ts";
 import { JoseAccessToken } from "./modules/identity/infra/jose-access-token.ts";
+import { OrdersService } from "./modules/orders/application/orders-service.ts";
+import { ordersRoutes } from "./modules/orders/http/routes.ts";
+import { DrizzleOrderRepository } from "./modules/orders/infra/drizzle-order-repository.ts";
+import { PaymentsService } from "./modules/payments/application/payments-service.ts";
+import { paymentsRoutes } from "./modules/payments/http/routes.ts";
+import { DrizzlePaymentRepository } from "./modules/payments/infra/drizzle-payment-repository.ts";
+import { HmacWebhookVerifier } from "./modules/payments/infra/hmac-webhook-verifier.ts";
+import { SandboxPaymentGateway } from "./modules/payments/infra/sandbox-gateway.ts";
 import "./shared/actor.ts";
 import { AppError } from "./shared/errors.ts";
 
 export interface AppOptions {
   pool: pg.Pool;
   jwtSecret: string;
+  /** Segredo compartilhado com o gateway para assinar os webhooks. */
+  webhookSecret: string;
   /** Origem do front-end autorizada a fazer requisições de escrita. */
   webOrigin: string;
   cookieSecure: boolean;
@@ -42,6 +52,13 @@ const STATUS_BY_CODE: Record<string, number> = {
   conflict: 409,
   business_rule: 422,
 };
+
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Rotinas periódicas, disparadas por main.ts (e pelo worker na Fase 6). */
+    jobs: { expireOrders: () => Promise<number> };
+  }
+}
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -103,10 +120,16 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       openapi: "3.1.0",
       info: {
         title: "EventMaster API",
-        version: "0.2.0",
+        version: "0.3.0",
         description: "API de gestão de eventos e ingressos.",
       },
-      tags: [{ name: "Autenticação" }, { name: "Eventos" }, { name: "Operação" }],
+      tags: [
+        { name: "Autenticação" },
+        { name: "Eventos" },
+        { name: "Pedidos" },
+        { name: "Pagamentos" },
+        { name: "Operação" },
+      ],
       components: {
         securitySchemes: {
           cookieAuth: { type: "apiKey", in: "cookie", name: ACCESS_COOKIE },
@@ -126,6 +149,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     signer,
   });
   const eventsService = new EventsService(new DrizzleEventRepository(db));
+  const ordersService = new OrdersService(new DrizzleOrderRepository(db));
+  const paymentsService = new PaymentsService({
+    orders: ordersService,
+    payments: new DrizzlePaymentRepository(db),
+    gateway: new SandboxPaymentGateway(),
+    webhookVerifier: new HmacWebhookVerifier(options.webhookSecret),
+  });
+  app.decorate("jobs", { expireOrders: () => ordersService.expireDue() });
 
   // Defesa extra contra CSRF: um navegador sempre envia `Origin` em requisições
   // de escrita vindas de outro site. Clientes sem `Origin` (curl, testes) não
@@ -174,6 +205,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     { prefix: "/v1" },
   );
   await app.register(eventsRoutes({ service: eventsService }), { prefix: "/v1" });
+  await app.register(ordersRoutes({ service: ordersService }), { prefix: "/v1" });
+  await app.register(paymentsRoutes({ service: paymentsService }), { prefix: "/v1" });
 
   return app;
 }

@@ -11,3 +11,7 @@ export function createDb(pool: pg.Pool) {
 }
 
 export type Db = ReturnType<typeof createDb>;
+
+/** Transação do Drizzle. Módulos que participam da mesma transação recebem este objeto. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type DbOrTx = Db | Tx;

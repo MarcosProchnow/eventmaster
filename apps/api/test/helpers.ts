@@ -7,12 +7,14 @@ export const TEST_DATABASE_URL =
   process.env.DATABASE_URL_TEST ??
   "postgres://eventmaster:eventmaster@localhost:5432/eventmaster_test";
 
+export const WEBHOOK_SECRET = "segredo-de-webhook-somente-para-testes";
 export const WEB_ORIGIN = "http://localhost:5173";
 
 export function buildTestApp(pool: ReturnType<typeof createPool>, authRateLimitMax = 10_000) {
   return buildApp({
     pool,
     jwtSecret: "segredo-somente-para-os-testes-automatizados",
+    webhookSecret: WEBHOOK_SECRET,
     webOrigin: WEB_ORIGIN,
     cookieSecure: false,
     authRateLimitMax,
