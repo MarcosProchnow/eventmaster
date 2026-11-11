@@ -34,3 +34,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check
       - run: pnpm run test
+      - name: Contrato OpenAPI atualizado
+        run: pnpm --filter @eventmaster/api run openapi:generate && git diff --exit-code apps/api/openapi.json
