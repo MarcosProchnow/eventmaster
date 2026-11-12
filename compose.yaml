@@ -1,3 +1,22 @@
+# Três formas de uso:
+#   docker compose up -d --wait                         # só Postgres e Mailpit (desenvolvimento com `pnpm dev`)
+#   docker compose --profile app up -d --build --wait   # aplicação completa em contêineres: http://localhost:8080
+#   ... --profile app --profile observabilidade ...     # + Jaeger (traces) em http://localhost:16686
+# Segredos vêm do arquivo .env da raiz (copie de .env.example). Sem eles a API recusa subir.
+
+x-api-image: &api-image
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile
+  image: eventmaster-api:local
+
+x-api-env: &api-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://eventmaster:eventmaster@postgres:5432/eventmaster
+  WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+  # Vazio = telemetria desligada. O perfil "observabilidade" a liga (veja o .env.example).
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -21,6 +40,77 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+
+  # ---------- aplicação (perfil "app") ----------
+  # Aplica as migrations e termina; a API só sobe depois que ele concluir com sucesso.
+  migrate:
+    <<: *api-image
+    profiles: [app]
+    command: ["node", "src/db/migrate.ts"]
+    environment:
+      DATABASE_URL: postgres://eventmaster:eventmaster@postgres:5432/eventmaster
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  api:
+    <<: *api-image
+    profiles: [app]
+    environment:
+      <<: *api-env
+      JWT_SECRET: ${JWT_SECRET:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      # Só o nginx (rede interna do Docker) fala com a API; dele vem o IP real do cliente.
+      TRUST_PROXY: uniquelocal
+      OTEL_SERVICE_NAME: eventmaster-api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    # Sem porta publicada: o acesso de fora é só pelo front (mesma origem).
+
+  worker:
+    <<: *api-image
+    profiles: [app]
+    command: ["node", "--import", "./src/telemetry.ts", "src/worker.ts"]
+    environment:
+      <<: *api-env
+      SMTP_URL: smtp://mailpit:1025
+      OTEL_SERVICE_NAME: eventmaster-worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: eventmaster-web:local
+    profiles: [app]
+    environment:
+      API_UPSTREAM: http://api:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------- observabilidade (perfil "observabilidade") ----------
+  # Recebe traces por OTLP/HTTP (4318) e mostra a interface em http://localhost:16686.
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    profiles: [observabilidade]
+    ports:
+      - "16686:16686"
 
 volumes:
   pgdata:

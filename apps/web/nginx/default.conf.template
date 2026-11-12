@@ -1,0 +1,44 @@
+# Gerado na subida do contêiner: ${API_UPSTREAM} vem da variável de ambiente.
+server {
+  listen 8080;
+  server_name _;
+  root /usr/share/nginx/html;
+  server_tokens off;
+
+  # Sem isto o nginx resolve o nome da API uma vez só, ao subir: se a API reiniciar com
+  # outro IP, o front passa a responder 502. Com `resolver` + variável no proxy_pass, o nome
+  # é resolvido de novo a cada 10 s, pelo DNS do ambiente (lido do /etc/resolv.conf na subida).
+  resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+
+  # API: mesma origem do front. Repassa o IP real do cliente para o rate limit da API
+  # (que precisa de TRUST_PROXY para confiar neste cabeçalho).
+  location /v1/ {
+    set $api_upstream ${API_UPSTREAM};
+    proxy_pass $api_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 1m;
+  }
+
+  # Arquivos com hash no nome: podem ficar em cache "para sempre".
+  location /assets/ {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+  }
+
+  location = /healthz {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok";
+  }
+
+  # SPA: qualquer outra rota cai no index.html, que nunca fica em cache (sempre aponta para os assets atuais).
+  location / {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache" always;
+    try_files $uri /index.html;
+  }
+}

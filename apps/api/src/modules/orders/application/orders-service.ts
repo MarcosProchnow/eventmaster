@@ -6,8 +6,8 @@ import type { OrderRepository } from "./ports.ts";
 
 /** Hash estável do conteúdo do pedido, independente da ordem dos itens. */
 function hashRequest(eventId: string, items: RequestedItem[]): string {
-  const canonical = [...items]
-    .sort((a, b) => a.ticketTypeId.localeCompare(b.ticketTypeId))
+  const canonical = items
+    .toSorted((a, b) => a.ticketTypeId.localeCompare(b.ticketTypeId))
     .map((i) => `${i.ticketTypeId}:${i.quantity}`)
     .join(",");
   return createHash("sha256").update(`${eventId}|${canonical}`).digest("hex");

@@ -7,6 +7,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, "JWT_SECRET deve ter ao menos 32 caracteres"),
   WEBHOOK_SECRET: z.string().min(32, "WEBHOOK_SECRET deve ter ao menos 32 caracteres"),
   WEB_ORIGIN: z.url().default("http://localhost:5173"),
+  // Endereços dos proxies confiáveis à frente da API, separados por vírgula (IPs, CIDRs ou
+  // `loopback`, `uniquelocal`). Vazio = ignora X-Forwarded-For, que o cliente poderia forjar.
+  TRUST_PROXY: z.string().trim().default(""),
 });
 
 export interface Config {
@@ -18,6 +21,8 @@ export interface Config {
   webOrigin: string;
   /** Cookies só trafegam por HTTPS em produção. */
   cookieSecure: boolean;
+  /** Proxies confiáveis; deles o IP do cliente (rate limit, logs) vem do X-Forwarded-For. */
+  trustProxy: string | undefined;
 }
 
 /** Valida as variáveis de ambiente no boot (12-factor). Falha cedo se algo faltar. */
@@ -31,5 +36,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webhookSecret: parsed.WEBHOOK_SECRET,
     webOrigin: new URL(parsed.WEB_ORIGIN).origin,
     cookieSecure: parsed.NODE_ENV === "production",
+    trustProxy: parsed.TRUST_PROXY || undefined,
   };
 }

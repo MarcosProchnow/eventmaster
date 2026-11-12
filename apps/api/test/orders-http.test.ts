@@ -162,7 +162,7 @@ describe("reserva de ingressos", () => {
       reserve(eventId, ticketTypeId, 1, buyer, k),
       reserve(eventId, ticketTypeId, 1, buyer, k),
     ]);
-    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 200, 201]);
+    expect(results.map((r) => r.statusCode).toSorted()).toEqual([200, 200, 201]);
     expect(new Set(results.map((r) => r.json().id)).size).toBe(1);
     expect(await available(eventId)).toBe(4);
   });

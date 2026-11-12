@@ -4,6 +4,8 @@ packages:
   - e2e
 allowBuilds:
   esbuild: true
+  # Só um aviso de versão no postinstall; não é necessário.
+  protobufjs: false
 minimumReleaseAgeExclude:
   - pg-boss@12.38.2
   - react-hook-form@7.92.0

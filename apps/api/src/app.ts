@@ -43,6 +43,8 @@ export interface AppOptions {
   /** Tentativas por minuto e por IP em cadastro, login e refresh. */
   authRateLimitMax?: number;
   logger?: boolean;
+  /** Endereços dos proxies confiáveis (ex.: "uniquelocal"); ausente = nenhum. */
+  trustProxy?: string | undefined;
 }
 
 const STATUS_BY_CODE: Record<string, number> = {
@@ -67,7 +69,11 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * Exporta a fábrica (sem `listen`) para os testes usarem `app.inject()`.
  */
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({
+    logger: options.logger ?? false,
+    // Atrás do nginx, sem isto todo cliente teria o IP do proxy e dividiria o mesmo rate limit.
+    trustProxy: options.trustProxy ?? false,
+  });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 

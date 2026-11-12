@@ -10,6 +10,7 @@ const app = await buildApp({
   webhookSecret: config.webhookSecret,
   webOrigin: config.webOrigin,
   cookieSecure: config.cookieSecure,
+  trustProxy: config.trustProxy,
   logger: true,
 });
 
