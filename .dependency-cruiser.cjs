@@ -9,6 +9,24 @@ const API = "^apps/api/src/";
 const MOD = `${API}modules/[^/]+/`;
 const WEB = "^apps/web/src/";
 
+/**
+ * Superfície pública de cada módulo para os outros (RNF06). Tudo o mais é interno.
+ * - tipos de domínio e regras puras que outro domínio precisa conhecer;
+ * - funções de infraestrutura que participam da transação de outro módulo
+ *   (reservar estoque, gravar no outbox) — o preço de um monólito com um só banco;
+ * - schemas HTTP de parâmetros reaproveitados em rotas aninhadas.
+ */
+const PUBLIC_API = [
+  `${API}modules/events/domain/event\\.ts$`,
+  `${API}modules/events/infra/ticket-inventory\\.ts$`,
+  `${API}modules/events/http/schemas\\.ts$`,
+  `${API}modules/orders/domain/order\\.ts$`,
+  `${API}modules/orders/application/orders-service\\.ts$`,
+  `${API}modules/orders/infra/order-store\\.ts$`,
+  `${API}modules/orders/http/schemas\\.ts$`,
+  `${API}modules/notifications/infra/outbox\\.ts$`,
+];
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
@@ -81,6 +99,16 @@ module.exports = {
       to: { path: `${API}(app|main|worker|openapi)(\\.ts$|/)` },
     },
 
+    {
+      name: "modulos-so-pela-api-publica",
+      severity: "error",
+      comment:
+        "Um módulo só usa de outro o que está em PUBLIC_API (abaixo). Ampliar essa lista é uma " +
+        "decisão de arquitetura visível no diff, e é também o contrato a manter se o módulo virar " +
+        "um serviço (docs/arquitetura/microsservicos.md).",
+      from: { path: `${API}modules/([^/]+)/` },
+      to: { path: `${API}modules/`, pathNot: [`${API}modules/$1/`, ...PUBLIC_API] },
+    },
     // ---------- Front-end (ADR 0004) ----------
     {
       name: "web-base-sem-features",

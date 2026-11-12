@@ -1,5 +1,7 @@
 # Plano do projeto integrado: EventMaster
 
+> **Status (12/11/2026):** fases 0 a 10 concluídas. Pendente: deploy de produção, que depende da escolha do provedor ([ADR 0014](adr/0014-hospedagem.md)). O que mudou em relação a este plano está registrado nos ADRs e no [arc42](arc42/README.md).
+
 Projeto público no GitHub para demonstrar a Pós-Graduação em Desenvolvimento Full Stack e Full Cycle (Arquitetura de Software, React e Node.js), usando práticas atuais (nov/2026) e não só a ementa dos bootcamps.
 
 Consolidado a partir de três pareceres: arquitetura, back-end Node.js e front-end React. Versões marcadas com **[verificar]** não foram confirmadas em fonte oficial e devem ser conferidas (`npm view <pacote> version`, nodejs.org, docs oficiais) antes de fixar.

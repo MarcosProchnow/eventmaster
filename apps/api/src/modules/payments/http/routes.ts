@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireActor } from "../../../shared/actor.ts";
-import { errorResponse } from "../../events/http/schemas.ts";
+import { errorResponse } from "../../../shared/http-schemas.ts";
 import { orderIdParams } from "../../orders/http/schemas.ts";
 import type { PaymentsService } from "../application/payments-service.ts";
 import type { Payment } from "../domain/payment.ts";

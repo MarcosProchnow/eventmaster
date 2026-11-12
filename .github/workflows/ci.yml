@@ -113,3 +113,12 @@ jobs:
       - name: Derrubar
         if: always()
         run: docker compose --profile app down -v
+
+  segredos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # todo o histórico: um segredo removido continua num commit antigo
+      - name: Scan de segredos (gitleaks)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --no-banner

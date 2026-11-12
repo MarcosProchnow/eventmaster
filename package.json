@@ -8,7 +8,7 @@
   },
   "scripts": {
     "check": "pnpm -r --if-present typecheck",
-    "lint": "oxlint --deny-warnings apps packages e2e",
+    "lint": "oxlint --deny-warnings apps packages e2e infra",
     "test": "pnpm -r --if-present test",
     "arch": "depcruise apps/api/src apps/web/src",
     "e2e": "pnpm --filter @eventmaster/e2e run e2e"

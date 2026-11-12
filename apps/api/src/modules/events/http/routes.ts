@@ -5,7 +5,6 @@ import type { EventsService } from "../application/events-service.ts";
 import {
   createEventBody,
   createTicketTypeBody,
-  errorResponse,
   eventIdParams,
   eventListResponse,
   eventResponse,
@@ -15,6 +14,7 @@ import {
   toTicketTypeDto,
   updateEventBody,
 } from "./schemas.ts";
+import { errorResponse } from "../../../shared/http-schemas.ts";
 
 interface Deps {
   service: EventsService;
