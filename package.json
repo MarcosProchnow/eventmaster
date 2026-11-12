@@ -8,12 +8,14 @@
   },
   "scripts": {
     "check": "pnpm -r --if-present typecheck",
+    "lint": "oxlint --deny-warnings apps packages e2e",
     "test": "pnpm -r --if-present test",
     "arch": "depcruise apps/api/src apps/web/src",
     "e2e": "pnpm --filter @eventmaster/e2e run e2e"
   },
   "devDependencies": {
     "dependency-cruiser": "18.7.2",
+    "oxlint": "1.93.0",
     "typescript": "^5.9.3"
   }
 }

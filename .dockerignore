@@ -1,0 +1,15 @@
+# O contexto de build é a raiz do monorepo; nada disto deve ir para a imagem.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+.devcontainer
+docs
+e2e
+apps/*/test
+apps/*/vitest.config.ts
+**/*.log
+**/coverage

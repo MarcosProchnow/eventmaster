@@ -1,0 +1,26 @@
+# Atualizações automáticas de dependências (ADR 0011). PRs semanais e agrupados para
+# não gerar ruído; cada PR passa pelo mesmo CI (testes, E2E, imagens).
+version: 2
+updates:
+  - package-ecosystem: npm # cobre o pnpm (lê o pnpm-lock.yaml)
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      producao:
+        dependency-type: production
+        update-types: [minor, patch]
+      desenvolvimento:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directories: [/apps/api, /apps/web]
+    schedule:
+      interval: weekly

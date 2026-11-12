@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useReducer, useRef } from "react";
+import { useReducer, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { api, ApiError, call, errorMessage } from "../../api/client";
 import { formatDateTime, formatMoney } from "../../shared/format";
@@ -27,6 +27,8 @@ export function EventDetailPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [cart, dispatch] = useReducer(cartReducer, {});
+  // Momento de abertura da página: renderizar precisa ser puro, então `Date.now()` não roda a cada render.
+  const [openedAt] = useState(() => Date.now());
   // Uma chave por tentativa de compra: repetir o envio (clique duplo, rede instável)
   // não cria um segundo pedido. Muda quando o carrinho muda.
   const idempotencyKey = useRef(crypto.randomUUID());
@@ -77,7 +79,7 @@ export function EventDetailPage() {
   const totalQuantity = Object.values(cart).reduce((sum, n) => sum + n, 0);
   // Valor derivado: calculado na renderização, sem estado próprio.
   const totalCents = types.reduce((sum, t) => sum + (cart[t.id] ?? 0) * t.priceCents, 0);
-  const started = new Date(event.data.startsAt).getTime() <= Date.now();
+  const started = new Date(event.data.startsAt).getTime() <= openedAt;
 
   return (
     <>
