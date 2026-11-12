@@ -13,34 +13,45 @@ import { OrganizerPage } from "../features/organizer/OrganizerPage";
 import { Alert } from "../shared/ui";
 import { Layout } from "./Layout";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      // Erros 4xx são respostas definitivas da API; só falhas de rede/5xx valem nova tentativa.
-      retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
+export function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        // Erros 4xx são respostas definitivas da API; só falhas de rede/5xx valem nova tentativa.
+        retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
+      },
     },
-  },
-});
+  });
+}
+
+/** Rotas separadas do roteador: os testes usam as mesmas rotas com `MemoryRouter`. */
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<EventsPage />} />
+        <Route path="eventos/:id" element={<EventDetailPage />} />
+        <Route path="entrar" element={<LoginPage />} />
+        <Route path="cadastro" element={<RegisterPage />} />
+        <Route path="pedidos" element={<RequireAuth><OrdersPage /></RequireAuth>} />
+        <Route path="pedidos/:id" element={<RequireAuth><OrderPage /></RequireAuth>} />
+        <Route path="organizador" element={<RequireAuth organizer><OrganizerPage /></RequireAuth>} />
+        <Route path="organizador/eventos/novo" element={<RequireAuth organizer><EventEditorPage /></RequireAuth>} />
+        <Route path="organizador/eventos/:id" element={<RequireAuth organizer><EventEditorPage /></RequireAuth>} />
+        <Route path="*" element={<Alert kind="info">Página não encontrada.</Alert>} />
+      </Route>
+    </Routes>
+  );
+}
+
+const queryClient = createQueryClient();
 
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<EventsPage />} />
-            <Route path="eventos/:id" element={<EventDetailPage />} />
-            <Route path="entrar" element={<LoginPage />} />
-            <Route path="cadastro" element={<RegisterPage />} />
-            <Route path="pedidos" element={<RequireAuth><OrdersPage /></RequireAuth>} />
-            <Route path="pedidos/:id" element={<RequireAuth><OrderPage /></RequireAuth>} />
-            <Route path="organizador" element={<RequireAuth organizer><OrganizerPage /></RequireAuth>} />
-            <Route path="organizador/eventos/novo" element={<RequireAuth organizer><EventEditorPage /></RequireAuth>} />
-            <Route path="organizador/eventos/:id" element={<RequireAuth organizer><EventEditorPage /></RequireAuth>} />
-            <Route path="*" element={<Alert kind="info">Página não encontrada.</Alert>} />
-          </Route>
-        </Routes>
+        <AppRoutes />
       </BrowserRouter>
     </QueryClientProvider>
   );
