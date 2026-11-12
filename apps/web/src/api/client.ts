@@ -24,7 +24,7 @@ let refreshing: Promise<boolean> | null = null;
 
 /** Várias requisições com 401 ao mesmo tempo disparam uma única renovação. */
 function refreshSession(): Promise<boolean> {
-  refreshing ??= fetch("/v1/auth/refresh", { method: "POST", credentials: "include" })
+  refreshing ??= fetch(new URL("/v1/auth/refresh", location.origin), { method: "POST", credentials: "include" })
     .then((response) => response.ok)
     .catch(() => false)
     .finally(() => {
@@ -46,7 +46,9 @@ const fetchWithRefresh: typeof fetch = async (input, init) => {
   return (await refreshSession()) ? fetch(retry) : response;
 };
 
-export const api = createApiClient({ fetch: fetchWithRefresh });
+// Origem explícita: no navegador é a do próprio front (o Vite/servidor repassa
+// `/v1` à API); nos testes (Node) evita URL relativa, que o `Request` do Node não aceita.
+export const api = createApiClient({ baseUrl: location.origin, fetch: fetchWithRefresh });
 
 interface ApiResult<T> {
   data?: T;

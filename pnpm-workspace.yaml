@@ -1,9 +1,16 @@
 packages:
   - apps/*
   - packages/*
+  - e2e
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - pg-boss@12.38.2
   - react-hook-form@7.92.0
   - vite@8.3.8
+# dependency-cruiser lê TypeScript só até a versão 6; o projeto compila com TS 7.
+# Liga o TS 5 da raiz a ele (as fitness functions não dependem da versão do compilador).
+packageExtensions:
+  dependency-cruiser@18:
+    peerDependencies:
+      typescript: ^5.9.0
