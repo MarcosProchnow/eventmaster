@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireActor } from "../../../shared/actor.ts";
 import { UnauthorizedError } from "../../../shared/errors.ts";
-import { errorResponse } from "../../events/http/schemas.ts";
+import { errorResponse } from "../../../shared/http-schemas.ts";
 import type { AuthService, Session } from "../application/auth-service.ts";
 import { ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS } from "../domain/user.ts";
 import { loginBody, registerBody, toUserDto, userResponse } from "./schemas.ts";

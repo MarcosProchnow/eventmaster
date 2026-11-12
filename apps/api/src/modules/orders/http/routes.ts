@@ -1,7 +1,8 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireActor } from "../../../shared/actor.ts";
-import { errorResponse, eventIdParams } from "../../events/http/schemas.ts";
+import { errorResponse } from "../../../shared/http-schemas.ts";
+import { eventIdParams } from "../../events/http/schemas.ts";
 import type { OrdersService } from "../application/orders-service.ts";
 import {
   createOrderBody,

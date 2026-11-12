@@ -68,14 +68,6 @@ export const ticketTypeResponse = z.object({
   available: z.number().int(),
 });
 
-export const errorResponse = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    details: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
-  }),
-});
-
 export const toEventDto = (e: Event): z.infer<typeof eventResponse> => ({
   id: e.id,
   organizerId: e.organizerId,
