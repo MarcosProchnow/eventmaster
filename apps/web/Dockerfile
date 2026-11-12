@@ -3,7 +3,7 @@
 # Assim front e API ficam na mesma origem, como exigem os cookies SameSite=Strict (ADR 0009).
 # Build a partir da raiz do monorepo:  docker build -f apps/web/Dockerfile .
 
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 RUN npm install -g pnpm@12.16.1
 WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
