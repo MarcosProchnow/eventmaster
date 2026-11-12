@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile --filter "@eventmaster/web..." \
  && pnpm --filter @eventmaster/web run build
 
 # Variante oficial do nginx que roda sem root (porta 8080).
-FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 # Endereço da API dentro da rede; trocado na subida do contêiner (template + envsubst).
 ENV API_UPSTREAM=http://api:3000
 # Faz a imagem oficial exportar NGINX_LOCAL_RESOLVERS (DNS do ambiente) para o template.
