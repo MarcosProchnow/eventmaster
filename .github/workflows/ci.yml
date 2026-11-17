@@ -122,3 +122,29 @@ jobs:
           fetch-depth: 0 # todo o histórico: um segredo removido continua num commit antigo
       - name: Scan de segredos (gitleaks)
         run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --no-banner
+
+  # Só depois de tudo verde e só na main (nunca em pull request).
+  publicar:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, e2e, containers, segredos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # o GITHUB_TOKEN deste job pode enviar pacotes; os outros jobs não
+    steps:
+      - uses: actions/checkout@v4
+      - name: Entrar no GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Construir e publicar as imagens
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}" # o registro exige minúsculas
+          for app in api web; do
+            IMAGE="ghcr.io/$OWNER/eventmaster-$app"
+            docker build -f "apps/$app/Dockerfile" \
+              --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              -t "$IMAGE:$GITHUB_SHA" -t "$IMAGE:latest" .
+            docker push "$IMAGE:$GITHUB_SHA"
+            docker push "$IMAGE:latest"
+            echo "- \`$IMAGE:$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          done
