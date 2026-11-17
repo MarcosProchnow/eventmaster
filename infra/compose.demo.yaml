@@ -1,0 +1,10 @@
+# Ajustes da demonstração no Codespace (usado por infra/codespace-demo.sh, junto com o compose.yaml).
+# Nada além do front (8080) e da interface de e-mails (8025) precisa ser alcançável de fora.
+# `restart` em todos os serviços: se o Docker do Codespace reiniciar, a pilha volta sozinha.
+services:
+  postgres:
+    ports: !reset null
+    restart: unless-stopped
+  mailpit:
+    ports: !override ["8025:8025"]
+    restart: unless-stopped

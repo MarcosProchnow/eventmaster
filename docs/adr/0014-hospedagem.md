@@ -1,6 +1,6 @@
 # 0014. Hospedagem de produção
 
-- Status: Proposto (imagens publicadas; falta escolher o provedor)
+- Status: Parcial (imagens publicadas e demonstração no Codespace; hospedagem contínua ainda não escolhida)
 - Data: 2026-11-12
 
 ## Contexto
@@ -26,6 +26,31 @@ As imagens e o Compose estão prontos e testados no CI (ADR 0011). Falta onde ro
 **Plataforma de contêineres gerenciada + Postgres gerenciado**, publicando as imagens no GitHub Container Registry (GHCR) pelo CI a cada push na `main` que passar nos testes. É o caminho com menos operação e que reaproveita tudo o que já foi testado.
 
 Antes de decidir o provedor, verificar na documentação oficial: suporte a processo sem HTTP (worker), rede privada entre serviços, Postgres gerenciado, preço do menor plano que não pare o worker, e região no Brasil (latência e LGPD).
+
+## Demonstração no Codespace (17/11/2026)
+Sem custo e sem conta nova, a aplicação completa roda no próprio Codespace: `infra/codespace-demo.sh` sobe a pilha (projeto Compose separado, com volume de dados próprio e o ambiente de desenvolvimento intocado), define `WEB_ORIGIN` com a URL do Codespace e aplica o seed. O subcomando `aprovar <pedido>` faz o papel do gateway sandbox, para completar a compra numa demonstração. Verificado em 17/11/2026: origem estranha recusada (403), cadastro, reserva, Pix, aprovação e pedido `paid` com ingresso.
+
+**Limites da opção (documentação oficial do GitHub):**
+- Cota gratuita de conta pessoal: 120 horas de núcleo por mês e 15 GB-mês de armazenamento. A máquina de 2 núcleos consome 2 horas da cota por hora ligada, ou seja, cerca de **60 horas por mês**. Sem forma de pagamento cadastrada, ao esgotar a cota o Codespace deixa de ser criado ou retomado.
+- Desliga sozinho após **30 minutos sem atividade** (padrão; configurável de 5 a 240 minutos) e tem vida máxima de **12 horas**. Tráfego HTTP pela porta encaminhada não conta como atividade; só digitação e saída de terminal.
+- Quem desligou o Codespace derruba o app: ao voltar, `infra/codespace-demo.sh`. Os contêineres têm `restart: unless-stopped`, mas um Codespace parado não volta sozinho.
+- A porta fica **privada** (só a conta dona abre a URL). Torná-la pública é decisão do dono (`gh codespace ports visibility 8080:public`): qualquer pessoa com a URL poderia cadastrar-se e criar dados.
+- O encaminhamento de portas só é registrado quando um cliente do VS Code (web ou desktop) abre o Codespace; por SSH a porta 8080 não aparece. As portas 8080 e 8025 foram acrescentadas ao `forwardPorts` do `.devcontainer`.
+- Atrás do proxy do GitHub, o nginx vê o IP do proxy e o limite de tentativas de login vale para todos juntos (a pendência do IP real, abaixo).
+- Conclusão: serve para demonstrar, não para ficar no ar de forma contínua.
+
+## Alternativas gratuitas analisadas (17/11/2026)
+O que o projeto exige para ficar no ar de forma contínua: API, worker e front sempre ligados e um PostgreSQL que não expire nem durma. Fontes: documentação oficial onde indicado; o restante vem de sites de comparação e **deve ser conferido na página do provedor antes de decidir**, pois preços e limites mudam.
+
+| Opção | O que a pesquisa encontrou | Atende? |
+|---|---|---|
+| Render, plano gratuito | Web service dorme após 15 min sem tráfego; Postgres gratuito expira em 30 dias (14 de carência, depois apaga); sem worker gratuito (fontes secundárias) | ❌ falta o worker e o banco duradouro |
+| Fly.io | Sem plano gratuito para contas novas; teste de US$ 1 por 7 dias, depois exige cartão ([docs oficiais](https://fly.io/docs/about/pricing/)) | ❌ |
+| Koyeb, Postgres gratuito | 5 horas ativas por mês e 1 GB, dorme após cerca de 5 min ([FAQ de preços](https://www.koyeb.com/docs/faqs/pricing)) | ❌ |
+| Oracle Cloud, Always Free | Única opção gratuita que roda o Compose completo 24 horas por dia, numa VM. Exige cartão para cadastro; instâncias ociosas podem ser reclamadas; guias de 2026 dizem que a cota ARM caiu pela metade (não confirmado nas [páginas da Oracle](https://docs.oracle.com/en-us/iaas/Content/FreeTier/resourceref.htm)); administração da VM (HTTPS, backup, atualizações) por nossa conta | ⚠️ viável, com ressalvas |
+| Codespace | Veja acima | ⚠️ só demonstração |
+
+**Decisão provisória:** usar o Codespace para demonstrar e manter as imagens publicadas. Para hospedagem contínua a opção gratuita que parece servir é uma VM Always Free da Oracle; as demais não atendem ao worker e ao banco. Antes de escolher, conferir o cadastro, os limites atuais e a política de instâncias ociosas diretamente na Oracle. Hospedagem paga de baixo custo (a plataforma gerenciada da tabela inicial) continua sendo a alternativa que menos dá trabalho.
 
 ## Imagens publicadas (17/11/2026)
 Passo independente do provedor, já feito: o job `publicar` do CI constrói e envia as duas imagens ao GitHub Container Registry a cada push na `main` **depois** de `check`, `e2e`, `containers` e `segredos` passarem (nunca em pull request).
