@@ -25,7 +25,15 @@ const event: Event = {
 const geral: TicketType = { id: "t1", eventId: "e1", name: "Geral", priceCents: 5000, quantity: 10, sold: 8 };
 const vip: TicketType = { id: "t2", eventId: "e1", name: "VIP", priceCents: 20000, quantity: 5, sold: 0 };
 const plan = (items: { ticketTypeId: string; quantity: number }[], overrides = {}) =>
-  planReservation({ event, ticketTypes: [geral, vip], items, now: NOW, ...overrides });
+  planReservation({
+    event,
+    ticketTypes: [geral, vip],
+    items,
+    now: NOW,
+    activeReservations: 0,
+    maxActiveReservations: 3,
+    ...overrides,
+  });
 
 describe("planReservation", () => {
   it("calcula itens e total com o preço do momento da reserva", () => {
@@ -54,10 +62,17 @@ describe("planReservation", () => {
     ).toThrow(BusinessRuleError);
   });
 
+  it("recusa quando a pessoa já tem o máximo de reservas ativas no evento", () => {
+    const items = [{ ticketTypeId: "t2", quantity: 1 }];
+    expect(plan(items, { activeReservations: 2 }).items).toHaveLength(1);
+    expect(() => plan(items, { activeReservations: 3 })).toThrow(/3 reservas/);
+    expect(() => plan(items, { activeReservations: 1, maxActiveReservations: 1 })).toThrow(BusinessRuleError);
+  });
+
   it("recusa tipo de outro evento, tipo repetido, pedido vazio e acima do limite", () => {
     const alheio: TicketType = { ...vip, id: "t9", eventId: "outro" };
     expect(() =>
-      planReservation({ event, ticketTypes: [alheio], items: [{ ticketTypeId: "t9", quantity: 1 }], now: NOW }),
+      plan([{ ticketTypeId: "t9", quantity: 1 }], { ticketTypes: [alheio] }),
     ).toThrow(BusinessRuleError);
     expect(() => plan([{ ticketTypeId: "inexistente", quantity: 1 }])).toThrow(BusinessRuleError);
     expect(() =>

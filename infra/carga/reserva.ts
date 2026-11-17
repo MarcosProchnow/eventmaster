@@ -1,7 +1,8 @@
 /**
  * Teste de carga da reserva (RNF03: p95 < 300 ms com 50 requisições concorrentes).
  *
- *   docker compose --profile app up -d --build --wait
+ *   MAX_ACTIVE_RESERVATIONS=100000 AUTH_RATE_LIMIT_MAX=100000 docker compose --profile app up -d --build --wait
+ *   (os dois limites precisam subir só neste teste: cada usuário faz centenas de reservas e todos se cadastram do mesmo IP)
  *   node infra/carga/reserva.ts                     # BASE_URL=http://localhost:8080 TOTAL=1000 CONCORRENCIA=50
  *
  * Cria um organizador, um evento publicado com um único tipo de ingresso e um
@@ -13,6 +14,9 @@
 const BASE = process.env.BASE_URL ?? "http://localhost:8080";
 const TOTAL = Number(process.env.TOTAL ?? 1000);
 const CONCURRENCY = Number(process.env.CONCORRENCIA ?? 50);
+// Compradores distintos (padrão: um por requisição concorrente). A API serializa as reservas de uma mesma
+// pessoa no mesmo evento (limite de reservas ativas, ADR 0006): USUARIOS=1 mede esse caso.
+const USERS = Number(process.env.USUARIOS ?? CONCURRENCY);
 // TIPOS > 1 espalha as reservas por vários tipos de ingresso (sem disputa pela mesma trava).
 const TYPES = Number(process.env.TIPOS ?? 1);
 const run = Date.now().toString(36);
@@ -43,9 +47,9 @@ async function ok(response: Response, what: string) {
   return response.json();
 }
 
-async function signUp(role: "organizer" | "attendee") {
+async function signUp(role: "organizer" | "attendee", n = 0) {
   const cookies: Cookies = new Map();
-  const email = `carga-${role}-${run}@example.com`;
+  const email = `carga-${role}-${n}-${run}@example.com`;
   await ok(await request("POST", "/v1/auth/register", cookies, { name: `Carga ${role}`, email, password: "senha-do-teste-de-carga", role }), "cadastro");
   return cookies;
 }
@@ -76,10 +80,11 @@ for (let i = 0; i < TYPES; i += 1) {
   );
 }
 await ok(await request("POST", `/v1/events/${event.id}/publish`, organizer, {}), "publicar");
-const attendee = await signUp("attendee");
+const attendees: Cookies[] = [];
+for (let i = 0; i < USERS; i += 1) attendees.push(await signUp("attendee", i));
 
 let counter = 0;
-const reserve = async () => {
+const reserve = async (attendee: Cookies) => {
   const ticketType = ticketTypes[counter++ % TYPES]!;
   const started = performance.now();
   const response = await request(
@@ -94,17 +99,22 @@ const reserve = async () => {
 };
 
 // Aquecimento (conexões, JIT, cache de planos do Postgres): fora da medição.
-for (let i = 0; i < 20; i += 1) await reserve();
+for (let i = 0; i < 20; i += 1) {
+  const { status } = await reserve(attendees[0]!);
+  if (status !== 201) {
+    throw new Error(`reserva de aquecimento devolveu ${status}: suba a API com MAX_ACTIVE_RESERVATIONS=100000 para este teste`);
+  }
+}
 
 // ---------- medição ----------
 const results: { ms: number; status: number }[] = [];
 let next = 0;
 const startedAt = performance.now();
 await Promise.all(
-  Array.from({ length: CONCURRENCY }, async () => {
+  Array.from({ length: CONCURRENCY }, async (_, worker) => {
     while (next < TOTAL) {
       next += 1;
-      results.push(await reserve());
+      results.push(await reserve(attendees[worker % USERS]!));
     }
   }),
 );
@@ -124,6 +134,7 @@ console.log(
       reservas: TOTAL,
       concorrencia: CONCURRENCY,
       tiposDeIngresso: TYPES,
+      usuarios: USERS,
       duracaoSegundos: Number(seconds.toFixed(1)),
       reservasPorSegundo: Math.round(TOTAL / seconds),
       latenciaMs: Object.fromEntries(

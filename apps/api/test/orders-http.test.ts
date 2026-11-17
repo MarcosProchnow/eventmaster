@@ -169,13 +169,66 @@ describe("reserva de ingressos", () => {
 
   it("nunca vende além do estoque com 20 compras simultâneas de 5 vagas (RNF01)", async () => {
     const { eventId, ticketTypeId } = await createEvent(5);
+    // 7 compradores (no máximo 3 reservas ativas cada): a disputa é pelo estoque, não pelo limite por pessoa.
+    const buyers = await Promise.all(Array.from({ length: 7 }, () => registerUser(app)));
     const results = await Promise.all(
-      Array.from({ length: 20 }, () => reserve(eventId, ticketTypeId, 1, buyer)),
+      Array.from({ length: 20 }, (_, i) => reserve(eventId, ticketTypeId, 1, buyers[i % 7]!.cookies)),
     );
     const statuses = results.map((r) => r.statusCode);
     expect(statuses.filter((s) => s === 201)).toHaveLength(5);
     expect(statuses.filter((s) => s === 409)).toHaveLength(15);
     expect(await available(eventId)).toBe(0);
+  });
+
+  it("limita as reservas ativas por pessoa e evento (OWASP API6)", async () => {
+    const { eventId, ticketTypeId } = await createEvent(20);
+    const user = (await registerUser(app)).cookies;
+    const keys = [key(), key(), key()];
+    for (const k of keys) expect((await reserve(eventId, ticketTypeId, 1, user, k)).statusCode).toBe(201);
+
+    const blocked = await reserve(eventId, ticketTypeId, 1, user);
+    expect(blocked.statusCode).toBe(422);
+    expect(blocked.json().error.message).toMatch(/3 reservas/);
+    expect(await available(eventId)).toBe(17);
+
+    // Repetir um pedido que já existe continua devolvendo o pedido, mesmo no limite.
+    expect((await reserve(eventId, ticketTypeId, 1, user, keys[0]!)).statusCode).toBe(200);
+    // O limite é por pessoa e por evento.
+    expect((await reserve(eventId, ticketTypeId, 1, other)).statusCode).toBe(201);
+    const second = await createEvent(5);
+    expect((await reserve(second.eventId, second.ticketTypeId, 1, user)).statusCode).toBe(201);
+  });
+
+  it("reserva vencida deixa de contar para o limite, mesmo antes de o worker expirá-la", async () => {
+    const { eventId, ticketTypeId } = await createEvent(20);
+    const user = (await registerUser(app)).cookies;
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i += 1) ids.push((await reserve(eventId, ticketTypeId, 1, user)).json().id);
+    expect((await reserve(eventId, ticketTypeId, 1, user)).statusCode).toBe(422);
+
+    await pool.query("update sales.orders set expires_at = now() - interval '1 minute' where id = $1", [ids[0]]);
+    expect((await reserve(eventId, ticketTypeId, 1, user)).statusCode).toBe(201);
+  });
+
+  it("reservas simultâneas da mesma pessoa não furam o limite", async () => {
+    const { eventId, ticketTypeId } = await createEvent(20);
+    const user = (await registerUser(app)).cookies;
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () => reserve(eventId, ticketTypeId, 1, user)),
+    );
+    expect(results.map((r) => r.statusCode).toSorted()).toEqual([201, 201, 201, ...Array(7).fill(422)]);
+    expect(await available(eventId)).toBe(17);
+  });
+
+  it("repetição simultânea de um pedido, já no limite, devolve o pedido e não o erro de limite", async () => {
+    const { eventId, ticketTypeId } = await createEvent(20);
+    const user = (await registerUser(app)).cookies;
+    await reserve(eventId, ticketTypeId, 1, user);
+    await reserve(eventId, ticketTypeId, 1, user);
+    const k = key();
+    const results = await Promise.all([k, k, k].map((x) => reserve(eventId, ticketTypeId, 1, user, x)));
+    expect(results.map((r) => r.statusCode).toSorted()).toEqual([200, 200, 201]);
+    expect(await available(eventId)).toBe(17);
   });
 
   it("recusa evento em rascunho, tipo de outro evento e quantidade acima do limite", async () => {

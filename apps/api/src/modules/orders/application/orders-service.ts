@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Actor } from "../../../shared/actor.ts";
 import { BusinessRuleError, NotFoundError } from "../../../shared/errors.ts";
-import type { Order, RequestedItem, Ticket } from "../domain/order.ts";
+import { DEFAULT_MAX_ACTIVE_RESERVATIONS, type Order, type RequestedItem, type Ticket } from "../domain/order.ts";
 import type { OrderRepository } from "./ports.ts";
 
 /** Hash estável do conteúdo do pedido, independente da ordem dos itens. */
@@ -16,10 +16,16 @@ function hashRequest(eventId: string, items: RequestedItem[]): string {
 export class OrdersService {
   readonly #repo: OrderRepository;
   readonly #now: () => Date;
+  readonly #maxActiveReservations: number;
 
-  constructor(repo: OrderRepository, now: () => Date = () => new Date()) {
+  constructor(
+    repo: OrderRepository,
+    now: () => Date = () => new Date(),
+    maxActiveReservations: number = DEFAULT_MAX_ACTIVE_RESERVATIONS,
+  ) {
     this.#repo = repo;
     this.#now = now;
+    this.#maxActiveReservations = maxActiveReservations;
   }
 
   /**
@@ -43,6 +49,7 @@ export class OrdersService {
       requestHash,
       items,
       now: this.#now(),
+      maxActiveReservations: this.#maxActiveReservations,
     });
     if (result !== "duplicate") return { order: result, replayed: false };
 

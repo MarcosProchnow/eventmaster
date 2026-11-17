@@ -41,10 +41,12 @@ export interface AppOptions {
   webOrigin: string;
   cookieSecure: boolean;
   /** Tentativas por minuto e por IP em cadastro, login e refresh. */
-  authRateLimitMax?: number;
+  authRateLimitMax?: number | undefined;
   logger?: boolean;
   /** Endereços dos proxies confiáveis (ex.: "uniquelocal"); ausente = nenhum. */
   trustProxy?: string | undefined;
+  /** Reservas aguardando pagamento por pessoa e evento; ausente = padrão do domínio. */
+  maxActiveReservations?: number | undefined;
 }
 
 const STATUS_BY_CODE: Record<string, number> = {
@@ -155,7 +157,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     signer,
   });
   const eventsService = new EventsService(new DrizzleEventRepository(db));
-  const ordersService = new OrdersService(new DrizzleOrderRepository(db));
+  const ordersService = new OrdersService(
+    new DrizzleOrderRepository(db),
+    undefined,
+    options.maxActiveReservations,
+  );
   const paymentsService = new PaymentsService({
     orders: ordersService,
     payments: new DrizzlePaymentRepository(db),

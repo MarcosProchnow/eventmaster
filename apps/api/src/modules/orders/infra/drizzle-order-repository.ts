@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, lte, sql } from "drizzle-orm";
 import type { Db } from "../../../db/client.ts";
 import { orderItems, orders, tickets } from "../../../db/schema.ts";
 import { isUniqueViolation } from "../../../shared/pg-errors.ts";
@@ -20,6 +20,32 @@ export class DrizzleOrderRepository implements OrderRepository {
   async reserve(command: ReserveCommand): Promise<Order | "duplicate"> {
     try {
       return await this.#db.transaction(async (tx) => {
+        // Serializa as reservas da mesma pessoa no mesmo evento. Sem a trava, N requisições
+        // simultâneas leriam a mesma contagem e passariam juntas pelo limite. Cai no fim da transação.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`${command.userId}:${command.eventId}`}, 0))`,
+        );
+        // Repetição que esperou a trava: o pedido já existe. É replay e não conta contra o limite.
+        const [same] = await tx
+          .select({ id: orders.id })
+          .from(orders)
+          .where(and(eq(orders.userId, command.userId), eq(orders.idempotencyKey, command.idempotencyKey)))
+          .limit(1);
+        if (same) return "duplicate";
+
+        // Reserva vencida e ainda não varrida pelo worker já não segura estoque: não conta.
+        const [active] = await tx
+          .select({ n: count() })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.userId, command.userId),
+              eq(orders.eventId, command.eventId),
+              eq(orders.status, "reserved"),
+              gt(orders.expiresAt, command.now),
+            ),
+          );
+
         const event = await findEvent(tx, command.eventId);
         // A partir daqui, compras concorrentes dos mesmos tipos esperam esta transação.
         const locked = await lockTicketTypes(
@@ -31,6 +57,8 @@ export class DrizzleOrderRepository implements OrderRepository {
           ticketTypes: locked,
           items: command.items,
           now: command.now,
+          activeReservations: active?.n ?? 0,
+          maxActiveReservations: command.maxActiveReservations,
         });
 
         for (const item of plan.items) await adjustSold(tx, item.ticketTypeId, item.quantity);

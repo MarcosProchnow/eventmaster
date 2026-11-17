@@ -26,7 +26,8 @@ export function ordersRoutes({ service }: { service: OrdersService }): FastifyPl
           tags,
           summary: "Reserva ingressos de um evento (válida por 15 minutos)",
           description:
-            "Exige o cabeçalho `Idempotency-Key`. Repetir a requisição com a mesma chave devolve o pedido já criado (200) em vez de reservar de novo.",
+            "Exige o cabeçalho `Idempotency-Key`. Repetir a requisição com a mesma chave devolve o pedido já criado (200) em vez de reservar de novo. " +
+            "Cada pessoa pode ter poucas reservas aguardando pagamento por evento (3 por padrão); acima disso a resposta é 422.",
           security,
           params: eventIdParams,
           headers: idempotencyHeaders,
