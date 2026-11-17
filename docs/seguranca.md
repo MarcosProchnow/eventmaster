@@ -41,7 +41,7 @@ flowchart LR
 | API3 Broken Object Property Level Authorization | ✅ | Entrada: `strictObject` (sem mass assignment). Saída: só campos do schema |
 | API4 Unrestricted Resource Consumption | ⚠️ parcial | Limites de corpo, página e itens; rate limit **só** nas rotas de autenticação e em memória (uma instância) |
 | API5 Broken Function Level Authorization | ✅ | Ações de organizador exigem papel e posse do evento |
-| API6 Unrestricted Access to Sensitive Business Flows | ❌ lacuna | Não há limite de reservas ativas por usuário: é possível segurar estoque em sequência (ver lacunas) |
+| API6 Unrestricted Access to Sensitive Business Flows | ✅ | No máximo 3 reservas aguardando pagamento por pessoa e evento (`MAX_ACTIVE_RESERVATIONS`). Contagem e criação são serializadas por trava de transação (`pg_advisory_xact_lock`); reserva vencida não conta; repetir a mesma `Idempotency-Key` continua devolvendo o pedido. Não impede várias contas (ver lacunas) |
 | API7 Server Side Request Forgery | ✅ não se aplica | A API não busca URLs fornecidas pelo usuário |
 | API8 Security Misconfiguration | ✅ | Helmet na API; CSP restrita, `nosniff`, `Referrer-Policy` no nginx; `/docs` não é exposto pelo nginx (só `/v1`); config validada no boot |
 | API9 Improper Inventory Management | ✅ | Versão no caminho (`/v1`), contrato OpenAPI versionado e verificado no CI |
@@ -51,7 +51,7 @@ flowchart LR
 Coletados: nome, e-mail e hash da senha. Logs padrão do Fastify registram método, URL e IP, sem corpo nem cabeçalhos (cookies não vão para o log). Não há exportação nem exclusão de conta implementadas (direitos do titular): pendência para produção real.
 
 ## Lacunas conhecidas (priorizadas)
-1. **Reserva sem limite por usuário (API6).** Mitigação proposta: no máximo N pedidos `reserved` por usuário e evento, verificado na mesma transação da reserva; rate limit na rota de reserva.
+1. **Várias contas contornam o limite por pessoa (API6).** Cada conta segura até 3 reservas por evento, e o cadastro só é limitado a 10 por minuto por IP. Mitigação: rate limit por IP na rota de reserva, confirmação de e-mail.
 2. **Rate limit em memória.** Com mais de uma réplica da API, cada uma conta separado. Mitigação: armazenamento compartilhado (Redis ou tabela no Postgres) quando escalar.
 3. **Enumeração de e-mail no cadastro** (409 para e-mail existente). Mitigação: resposta neutra e confirmação por e-mail.
 4. **IP real atrás do balanceador da plataforma** (ADR 0014): configurar `set_real_ip_from` no nginx no deploy.

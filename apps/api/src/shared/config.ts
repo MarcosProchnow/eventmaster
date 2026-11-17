@@ -10,6 +10,16 @@ const envSchema = z.object({
   // Endereços dos proxies confiáveis à frente da API, separados por vírgula (IPs, CIDRs ou
   // `loopback`, `uniquelocal`). Vazio = ignora X-Forwarded-For, que o cliente poderia forjar.
   TRUST_PROXY: z.string().trim().default(""),
+  // Vazio ou ausente = padrão do domínio. Acima do padrão só faz sentido em teste de carga.
+  // Tentativas por minuto e IP em cadastro, login e refresh. Vazio = padrão (10). Só o teste de carga o aumenta.
+  AUTH_RATE_LIMIT_MAX: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().min(1).max(100_000).optional(),
+  ),
+  MAX_ACTIVE_RESERVATIONS: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().min(1).max(100_000).optional(),
+  ),
 });
 
 export interface Config {
@@ -23,6 +33,9 @@ export interface Config {
   cookieSecure: boolean;
   /** Proxies confiáveis; deles o IP do cliente (rate limit, logs) vem do X-Forwarded-For. */
   trustProxy: string | undefined;
+  /** Reservas aguardando pagamento por pessoa e evento; `undefined` usa o padrão do domínio. */
+  maxActiveReservations: number | undefined;
+  authRateLimitMax: number | undefined;
 }
 
 /** Valida as variáveis de ambiente no boot (12-factor). Falha cedo se algo faltar. */
@@ -37,5 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webOrigin: new URL(parsed.WEB_ORIGIN).origin,
     cookieSecure: parsed.NODE_ENV === "production",
     trustProxy: parsed.TRUST_PROXY || undefined,
+    maxActiveReservations: parsed.MAX_ACTIVE_RESERVATIONS,
+    authRateLimitMax: parsed.AUTH_RATE_LIMIT_MAX,
   };
 }

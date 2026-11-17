@@ -25,3 +25,15 @@ Reserva dentro de transação com bloqueio da linha do tipo de ingresso; reserva
 - `Idempotency-Key` obrigatória: a mesma chave devolve o pedido existente; com conteúdo diferente é recusada (o hash do pedido fica gravado).
 - Verificado por teste: 20 compras simultâneas para 5 vagas resultam em exatamente 5 pedidos.
 - Limitação: a contenção é por tipo de ingresso. Para eventos muito disputados, a evolução seria fila de espera ou reserva em memória (Redis).
+
+## Limite de reservas ativas por pessoa (17/11/2026)
+Sem limite, uma só pessoa podia reservar o estoque inteiro em sequência e segurá-lo por 15 minutos (OWASP API6, [segurança](../seguranca.md)).
+
+- Regra: no máximo **3 reservas aguardando pagamento por pessoa e evento** (`DEFAULT_MAX_ACTIVE_RESERVATIONS`; `MAX_ACTIVE_RESERVATIONS` altera, usado só no teste de carga). Acima disso, 422 com mensagem explicando. A regra é pura (`planReservation`).
+- "Ativa" = `reserved` e ainda não vencida: reserva vencida que o worker ainda não varreu não conta.
+- **Concorrência.** Contar e depois inserir não é seguro: 10 requisições simultâneas leriam a mesma contagem e passariam juntas. A transação começa com `pg_advisory_xact_lock` sobre (pessoa, evento), o que serializa só as reservas da mesma pessoa no mesmo evento; outras pessoas não esperam. A trava é solta no fim da transação. Só a reserva a pede, e sempre antes das travas do estoque; nenhum outro caminho espera por ela, então não há ciclo de espera (deadlock).
+- **Replay.** Quem esperou a trava e descobre que a `Idempotency-Key` já virou pedido recebe o pedido (200), não o erro de limite. Repetir um pedido existente nunca é bloqueado pelo limite.
+- Alternativas descartadas: `CHECK` no banco (não consegue contar outras linhas); gatilho (poderia, mas esconderia uma regra de negócio no banco, fora do domínio testável); limite só na aplicação, sem trava (a corrida é real: o teste falha sem a trava).
+- Verificado por teste: 10 reservas simultâneas da mesma pessoa resultam em exatamente 3 pedidos; removendo a trava ou a checagem de replay, o teste correspondente falha.
+- Limitação: o limite é por conta. Várias contas ainda seguram 3 reservas cada.
+

@@ -65,6 +65,10 @@ services:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
       # Só o nginx (rede interna do Docker) fala com a API; dele vem o IP real do cliente.
       TRUST_PROXY: uniquelocal
+      # Vazio = padrão (3 reservas aguardando pagamento por pessoa e evento). Só o teste de carga o aumenta.
+      MAX_ACTIVE_RESERVATIONS: ${MAX_ACTIVE_RESERVATIONS:-}
+      # Idem, para o limite de cadastros por minuto (padrão 10).
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-}
       OTEL_SERVICE_NAME: eventmaster-api
     depends_on:
       migrate:

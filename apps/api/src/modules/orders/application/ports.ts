@@ -7,6 +7,7 @@ export interface ReserveCommand {
   requestHash: string;
   items: RequestedItem[];
   now: Date;
+  maxActiveReservations: number;
 }
 
 export interface OrderRepository {

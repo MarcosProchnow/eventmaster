@@ -35,6 +35,8 @@ export interface RequestedItem {
 
 export const RESERVATION_TTL_SECONDS = 15 * 60;
 export const MAX_TICKETS_PER_ORDER = 10;
+/** Reservas aguardando pagamento que uma pessoa pode ter por evento (OWASP API6: não deixar um só usuário segurar o estoque). */
+export const DEFAULT_MAX_ACTIVE_RESERVATIONS = 3;
 
 /**
  * Regra pura da reserva: valida o pedido contra o evento e o estoque (já
@@ -45,11 +47,20 @@ export function planReservation(input: {
   ticketTypes: TicketType[];
   items: RequestedItem[];
   now: Date;
+  /** Reservas ainda válidas (não pagas, não vencidas) da pessoa neste evento. */
+  activeReservations: number;
+  maxActiveReservations: number;
 }): { items: OrderItem[]; totalCents: number } {
-  const { event, ticketTypes, items, now } = input;
+  const { event, ticketTypes, items, now, activeReservations, maxActiveReservations } = input;
   if (!event || event.status !== "published") throw new NotFoundError("Evento não encontrado");
   if (event.startsAt.getTime() <= now.getTime()) {
     throw new BusinessRuleError("As vendas deste evento estão encerradas");
+  }
+  if (activeReservations >= maxActiveReservations) {
+    throw new BusinessRuleError(
+      `Você já tem ${maxActiveReservations} reservas aguardando pagamento neste evento. ` +
+        `Conclua um pagamento ou aguarde a expiração (${RESERVATION_TTL_SECONDS / 60} minutos).`,
+    );
   }
   if (items.length === 0) throw new BusinessRuleError("Escolha ao menos um ingresso");
   if (new Set(items.map((i) => i.ticketTypeId)).size !== items.length) {

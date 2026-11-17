@@ -76,7 +76,7 @@ Cenários, medições e trade-offs em [análise de trade-offs](../arquitetura/tr
 | RNF01 Sem venda acima do estoque | ✅ | teste de concorrência; carga (3.000 reservas, 0 inconsistências) |
 | RNF02 Sem cobrança dupla | ✅ | testes de idempotência e webhook |
 | RNF03 p95 < 300 ms com 50 concorrentes | ⚠️ atende com carga distribuída; não no pior caso | `infra/carga/reserva.ts`, [medição](../arquitetura/trade-offs.md#medição-de-desempenho-da-reserva-rnf03) |
-| RNF04 Sem BOLA; OWASP API | ✅ com 1 lacuna (API6) | testes de autorização, [segurança](../seguranca.md) |
+| RNF04 Sem BOLA; OWASP API | ✅ | testes de autorização e do limite de reservas por pessoa, [segurança](../seguranca.md) |
 | RNF05 LGPD e senha forte | ✅ minimização; ❌ direitos do titular | Argon2id, revisão |
 | RNF06 Fronteiras verificadas | ✅ | `pnpm run arch` no CI |
 | RNF07 trace-id, `/health`, `/ready` | ✅ | traces verificados no Jaeger |
@@ -84,11 +84,11 @@ Cenários, medições e trade-offs em [análise de trade-offs](../arquitetura/tr
 | RNF09 Um comando | ✅ | job `containers` do CI |
 | RNF10 Sem segredos; sandbox | ✅ | gitleaks no CI sobre todo o histórico |
 
-**Números de qualidade:** 89 testes na API, 23 no front, 4 E2E, 13 regras de arquitetura, 219 regras de lint, 0 vulnerabilidades conhecidas em dependências de produção (`pnpm audit`, 12/11/2026).
+**Números de qualidade:** 94 testes na API, 23 no front, 4 E2E, 13 regras de arquitetura, 219 regras de lint, 0 vulnerabilidades conhecidas em dependências de produção (`pnpm audit`, 12/11/2026).
 
 ## 11. Riscos e débitos técnicos
 [Registro de riscos (5W2H)](../riscos.md) e lacunas em [segurança](../seguranca.md#lacunas-conhecidas-priorizadas). Os principais débitos:
-1. Limite de reservas ativas por usuário (API6).
+1. Várias contas contornam o limite de reservas por pessoa (rate limit por IP na reserva, confirmação de e-mail).
 2. Desempenho do pior caso (RNF03) e medição fora do Codespace.
 3. RF08 a RF10 e lembretes por e-mail.
 4. Caminho de falha do worker sem teste de integração.

@@ -19,7 +19,7 @@ Prioridade = (importância para o negócio, dificuldade técnica), A/M/B.
 | Observabilidade | Reserva lenta → achar a consulta SQL culpada | (M, M) | ✅ trace com 14 spans por requisição (HTTP → Fastify → pg) |
 
 ## Medição de desempenho da reserva (RNF03)
-`node infra/carga/reserva.ts` contra a pilha completa (nginx → API → Postgres) no Codespace de 2 vCPUs e 8 GB, com o gerador de carga na mesma máquina. 1.000 reservas por rodada, depois de 20 de aquecimento.
+Medição inicial, com um comprador só (antes do limite de reservas por pessoa). `node infra/carga/reserva.ts` contra a pilha completa (nginx → API → Postgres) no Codespace de 2 vCPUs e 8 GB, com o gerador de carga na mesma máquina. 1.000 reservas por rodada, depois de 20 de aquecimento.
 
 | Cenário | Vazão | p50 | p95 | p99 | RNF03 |
 |---|---|---|---|---|---|
@@ -31,13 +31,23 @@ Prioridade = (importância para o negócio, dificuldade técnica), A/M/B.
 
 **Hipóteses a investigar** (não verificadas): o pool do `pg` tem 10 conexões (`db/client.ts`), então 40 das 50 requisições esperam conexão; e o gerador de carga divide as mesmas 2 vCPUs com nginx, Node e Postgres. Próximo passo seria medir com o gerador em outra máquina e variar o tamanho do pool.
 
+**Remedição depois do limite de reservas por pessoa (17/11/2026).** A reserva passou a fazer uma trava de transação e uma contagem a mais ([ADR 0006](../adr/0006-concorrencia-estoque.md)), e a trava serializa as reservas *da mesma pessoa*. Por isso o script de carga deixou de usar um comprador só: agora há um por requisição concorrente (`USUARIOS`), que é também o cenário real do RNF03. Mesmo ambiente, 1.000 reservas por rodada.
+
+| Cenário | Vazão | p50 | p95 | p99 | RNF03 |
+|---|---|---|---|---|---|
+| 50 compradores, 1 tipo de ingresso (3 rodadas) | 154–194/s | 237–298 ms | **369–502 ms** | 466–644 ms | ❌ |
+| 50 compradores, 50 tipos | 214/s | 221 ms | 296 ms | 337 ms | ✅ (margem de 4 ms) |
+| 1 comprador, 1 tipo (serializado pela trava, por desenho) | 161/s | 299 ms | 356 ms | 371 ms | ❌ |
+
+Comparado com a medição inicial, a vazão ficou 5–10% menor e o p95 do cenário sem disputa subiu de 255 para 296 ms. É coerente com o trabalho extra por reserva, mas o número de rodadas é pequeno (1 a 3) e a variação entre rodadas tem o mesmo tamanho, então **não é uma conclusão firme**: a margem do RNF03 no melhor cenário ficou praticamente no limite. A correção não mudou (estoque vendido = pedidos criados em todas as rodadas). Se a margem importar, o primeiro passo é medir com o gerador fora da máquina.
+
 **Decisão.** Manter o desenho: a meta é atingida com até 10 compras simultâneas no mesmo setor ou com a carga distribuída, e a correção (nunca vender a mais) foi mantida sob carga, que é o requisito de maior prioridade. Para um evento de alta procura ("pior caso"), as alternativas estão abaixo e ficam como evolução.
 
 ## Pontos de sensibilidade
 Decisões em que um parâmetro muda muito um atributo.
 - **Trava pessimista por tipo de ingresso** (ADR 0006): determina a correção do estoque e, ao mesmo tempo, a cauda de latência em evento quente.
 - **Tamanho do pool de conexões** (10): limita a concorrência real no banco.
-- **Validade da reserva** (15 min): mais tempo = mais conversão e mais estoque "preso" (e maior o efeito da lacuna API6 de [segurança](../seguranca.md)).
+- **Validade da reserva** (15 min): mais tempo = mais conversão e mais estoque "preso" (o efeito é limitado pelo teto de reservas ativas por pessoa, [segurança](../seguranca.md)).
 - **Intervalo do relay do outbox** (2 s) e do polling da página do pedido (4 s): definem quanto o usuário espera para ver "Pago" e receber o e-mail.
 
 ## Pontos de trade-off
@@ -56,7 +66,7 @@ Decisões que melhoram um atributo e pioram outro.
 ## Riscos e não-riscos
 **Riscos:**
 - Evento de alta procura (pior caso) fora do RNF03 no ambiente medido.
-- Reserva sem limite por usuário (API6): permite segurar o estoque.
+- Várias contas ainda podem segurar estoque: o limite é por pessoa, não por rede ([segurança](../seguranca.md)).
 - Caminho de falha do worker (retries, dead-letter) sem teste de integração.
 - Teto de vazão de uma instância ainda não medido fora do Codespace.
 
