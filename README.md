@@ -46,6 +46,8 @@ cd ../web && pnpm run dev            # outro terminal: front em http://localhost
 ```
 Para aprovar um pagamento sandbox: `pnpm run sandbox:webhook <providerRef> approved` (o `providerRef` está em `payments.payments`). E-mails aparecem no Mailpit, em http://localhost:8025.
 
+**Imagens:** o CI publica `eventmaster-api` e `eventmaster-web` no GitHub Container Registry a cada push na `main` ([ADR 0014](docs/adr/0014-hospedagem.md)).
+
 **Traces:** descomente `OTEL_EXPORTER_OTLP_ENDPOINT` no `.env`, acrescente `--profile observabilidade` e abra o Jaeger em http://localhost:16686.
 
 ## Qualidade

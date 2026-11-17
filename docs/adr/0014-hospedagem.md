@@ -1,6 +1,6 @@
 # 0014. Hospedagem de produção
 
-- Status: Proposto (falta escolher o provedor)
+- Status: Proposto (imagens publicadas; falta escolher o provedor)
 - Data: 2026-11-12
 
 ## Contexto
@@ -26,6 +26,19 @@ As imagens e o Compose estão prontos e testados no CI (ADR 0011). Falta onde ro
 **Plataforma de contêineres gerenciada + Postgres gerenciado**, publicando as imagens no GitHub Container Registry (GHCR) pelo CI a cada push na `main` que passar nos testes. É o caminho com menos operação e que reaproveita tudo o que já foi testado.
 
 Antes de decidir o provedor, verificar na documentação oficial: suporte a processo sem HTTP (worker), rede privada entre serviços, Postgres gerenciado, preço do menor plano que não pare o worker, e região no Brasil (latência e LGPD).
+
+## Imagens publicadas (17/11/2026)
+Passo independente do provedor, já feito: o job `publicar` do CI constrói e envia as duas imagens ao GitHub Container Registry a cada push na `main` **depois** de `check`, `e2e`, `containers` e `segredos` passarem (nunca em pull request).
+
+| Imagem | Tags |
+|---|---|
+| `ghcr.io/marcosprochnow/eventmaster-api` (API, worker e migrations) | `<sha do commit>` e `latest` |
+| `ghcr.io/marcosprochnow/eventmaster-web` (nginx + front) | `<sha do commit>` e `latest` |
+
+- Em produção, use a tag do **sha**, não `latest`: ela diz exatamente qual commit está no ar e permite voltar atrás.
+- Os pacotes herdam a visibilidade do repositório (privados). Para baixar fora do GitHub é preciso `docker login ghcr.io` com um token pessoal com a permissão `read:packages`; uma plataforma de deploy guarda esse token como segredo.
+- Só esse job recebe `packages: write`; os demais continuam só de leitura.
+- As imagens não passam por scanner de vulnerabilidades da imagem (apenas `pnpm audit` das dependências). Fica como melhoria.
 
 ## Pendências do deploy, independentes do provedor
 - **IP real do cliente atrás do balanceador da plataforma.** Hoje o nginx usa o IP de quem o chama; atrás de um balanceador, seria o IP do balanceador, e o rate limit voltaria a ser global. Configurar `set_real_ip_from` com as faixas do balanceador e `real_ip_header X-Forwarded-For` no nginx.
