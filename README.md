@@ -1,18 +1,51 @@
 # EventMaster
 
-Plataforma de gestão de eventos construída de ponta a ponta como projeto integrado da **Pós-Graduação em Desenvolvimento Full Stack e Full Cycle** (bootcamps de Arquitetura de Software, React e Node.js), com práticas atuais em vez de só a ementa.
-
-Organizadores publicam eventos e tipos de ingresso; participantes buscam, reservam, pagam (gateway em **sandbox**, nenhum dinheiro real) e recebem ingressos com QR code; o sistema avisa por e-mail.
-
 [![CI](https://github.com/MarcosProchnow/eventmaster/actions/workflows/ci.yml/badge.svg)](https://github.com/MarcosProchnow/eventmaster/actions/workflows/ci.yml)
 
+Plataforma de gestão de eventos construída de ponta a ponta como projeto integrado da **Pós-Graduação em Desenvolvimento Full Stack e Full Cycle** (bootcamps de Arquitetura de Software, React e Node.js), usando práticas atuais em vez de só a ementa.
+
+Organizadores publicam eventos e tipos de ingresso; participantes buscam, reservam, pagam (gateway em **sandbox**: nenhum dinheiro real) e recebem ingressos com QR code; o sistema avisa por e-mail.
+
+> **Status:** as 10 fases do plano estão concluídas, com testes e CI verdes.
+> **Falta:** check-in, cancelamento pelo participante e relatório de vendas (RF08 a RF10); hospedagem contínua em produção (hoje a demonstração roda sob demanda num Codespace, [ADR 0014](docs/adr/0014-hospedagem.md)). É um projeto de estudo e portfólio, não um produto.
+
 ## Destaques
-- **Não vende acima do estoque nem cobra duas vezes**: trava pessimista com `CHECK` no banco, `Idempotency-Key`, webhook assinado e liquidação idempotente. Verificado com teste de concorrência e 3.000 reservas simultâneas sob carga.
-- **Arquitetura que não degrada em silêncio**: monólito modular Hexagonal com 13 regras de dependência checadas no CI, inclusive a API pública entre módulos.
-- **Contrato único**: schemas Zod geram o OpenAPI 3.1, que gera o cliente TypeScript do front; o CI falha se divergirem.
-- **Sessão segura em SPA**: JWT curto e refresh rotativo em cookies `HttpOnly; Secure; SameSite=Strict`, mesma origem, detecção de reuso de token.
-- **Pronto para produção**: imagens sem root, Compose por perfis, smoke test dos contêineres no CI, OpenTelemetry (HTTP → Fastify → SQL num só trace).
-- **Documentado como arquitetura de verdade**: arc42, 14 ADRs, C4 até o nível 3, 4+1, STRIDE + OWASP API Top 10, análise de trade-offs com medição e plano de extração para microsserviços.
+- **Não vende acima do estoque nem cobra duas vezes:** trava pessimista com `CHECK` no banco, `Idempotency-Key`, webhook assinado e liquidação idempotente. Verificado com teste de concorrência e 3.000 reservas simultâneas sob carga.
+- **Limite de reservas por pessoa sem corrida:** no máximo 3 reservas aguardando pagamento por evento, com trava de transação. Sem a trava, o teste falha ([ADR 0006](docs/adr/0006-concorrencia-estoque.md)).
+- **Arquitetura que não degrada em silêncio:** monólito modular Hexagonal com 13 regras de dependência checadas no CI, inclusive a API pública entre módulos.
+- **Contrato único:** schemas Zod geram o OpenAPI 3.1, que gera o cliente TypeScript do front; o CI falha se divergirem.
+- **Sessão segura em SPA:** JWT curto e refresh rotativo em cookies `HttpOnly; Secure; SameSite=Strict`, mesma origem, detecção de reuso de token.
+- **Entrega reproduzível:** imagens sem root, Compose por perfis, smoke test dos contêineres no CI, imagens publicadas no GitHub Container Registry, OpenTelemetry (HTTP → Fastify → SQL num só trace).
+- **Documentado como arquitetura de verdade:** arc42, 14 ADRs, C4 até o nível 3, 4+1, STRIDE + OWASP API Top 10, análise de trade-offs com medição e plano de extração para microsserviços.
+
+## Arquitetura em uma imagem
+```mermaid
+flowchart LR
+  U([Navegador]) -->|HTTPS, única origem pública| WEB["web\nnginx: SPA React + proxy de /v1"]
+  WEB -->|rede privada| API["api\nNode 24 + Fastify\nmonólito modular"]
+  API -->|SQL, transações| DB[("PostgreSQL 17\num schema por módulo")]
+  WORKER["worker\nNode 24 + pg-boss"] -->|outbox, fila, expiração| DB
+  WORKER -->|SMTP| MAIL[(E-mail)]
+  API -->|porta PaymentGateway| PG[(Gateway sandbox)]
+  PG -->|webhook assinado HMAC| WEB
+  API -. OTLP .-> OBS[(Jaeger)]
+  WORKER -. OTLP .-> OBS
+```
+Dentro da API, cada módulo (`identity`, `events`, `orders`, `payments`, `notifications`) segue a mesma estrutura Hexagonal: `http` → `application` (casos de uso e portas) → `domain` (regras puras), com `infra` implementando as portas. Detalhes em [C4](docs/diagramas/c4.md) e [4+1](docs/diagramas/4mais1.md).
+
+## O projeto em números
+Verificados em 17/11/2026.
+
+| | |
+|---|---|
+| Testes da API (unitários e integração com Postgres real) | 98 |
+| Testes de componente do front (Testing Library + MSW) | 23 |
+| Testes E2E no navegador (Playwright, com axe de acessibilidade) | 4 |
+| Regras de arquitetura verificadas no CI | 13 |
+| Regras de lint (oxlint) | 219 |
+| Vulnerabilidades conhecidas em dependências de produção (`pnpm audit`) | 0 |
+| Segredos encontrados em todo o histórico (gitleaks) | 0 |
+| Jobs do CI (qualidade, E2E, contêineres, segredos, publicação) | 5 |
 
 ## Stack
 | Camada | Tecnologias |
@@ -46,7 +79,7 @@ cd ../web && pnpm run dev            # outro terminal: front em http://localhost
 ```
 Para aprovar um pagamento sandbox: `pnpm run sandbox:webhook <providerRef> approved` (o `providerRef` está em `payments.payments`). E-mails aparecem no Mailpit, em http://localhost:8025.
 
-**Demonstração no Codespace:** `infra/codespace-demo.sh` sobe a aplicação completa e a abre pela porta 8080 (a visibilidade da porta é decisão do dono). Limites e o que ela não é: [ADR 0014](docs/adr/0014-hospedagem.md).
+**Demonstração no Codespace:** `infra/codespace-demo.sh` sobe a aplicação completa e a abre pela porta 8080 (a visibilidade da porta é decisão do dono). Roda só enquanto o Codespace estiver ligado. Limites e o que ela não é: [ADR 0014](docs/adr/0014-hospedagem.md).
 
 **Imagens:** o CI publica `eventmaster-api` e `eventmaster-web` no GitHub Container Registry a cada push na `main` ([ADR 0014](docs/adr/0014-hospedagem.md)).
 
@@ -78,7 +111,7 @@ apps/api            API Fastify, worker e migrations (módulos: identity, events
 apps/web            front React (features: auth, events, orders, organizer) + nginx
 packages/api-client cliente TypeScript gerado do OpenAPI
 e2e                 Playwright + axe
-infra               init do Postgres, smoke test e teste de carga
+infra               init do Postgres, smoke test, teste de carga e demonstração no Codespace
 docs                arc42, ADRs, diagramas, requisitos, segurança, trade-offs, riscos
 ```
 
@@ -86,4 +119,7 @@ docs                arc42, ADRs, diagramas, requisitos, segurança, trade-offs, 
 Comece pelo **[arc42](docs/arc42/README.md)**, que liga tudo. Atalhos: [ADRs](docs/adr/README.md) · [C4](docs/diagramas/c4.md) · [4+1](docs/diagramas/4mais1.md) · [Segurança](docs/seguranca.md) · [Trade-offs e medições](docs/arquitetura/trade-offs.md) · [Microsserviços](docs/arquitetura/microsservicos.md) · [Plano do projeto](docs/PLANO-PROJETO.md).
 
 ## Limitações conhecidas
-Check-in, cancelamento pelo participante e relatório de vendas não foram implementados; o pior caso de desempenho (50 reservas simultâneas no mesmo setor) ficou acima da meta no ambiente medido; o deploy de produção aguarda a escolha do provedor. Lista completa e priorizada na [seção 11 do arc42](docs/arc42/README.md#11-riscos-e-débitos-técnicos).
+Check-in, cancelamento pelo participante e relatório de vendas não foram implementados; o pior caso de desempenho (50 reservas simultâneas no mesmo setor) ficou acima da meta de 300 ms no ambiente medido; várias contas ainda contornam o limite de reservas por pessoa; o deploy contínuo em produção aguarda a escolha do provedor. Lista completa e priorizada na [seção 11 do arc42](docs/arc42/README.md#11-riscos-e-débitos-técnicos).
+
+## Autor
+Feito por [Marcos Prochnow](https://github.com/MarcosProchnow). O desenvolvimento contou com o apoio do Claude (Anthropic) como programador em par; as decisões estão registradas nos ADRs.

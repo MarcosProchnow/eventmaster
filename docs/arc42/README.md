@@ -84,7 +84,7 @@ Cenários, medições e trade-offs em [análise de trade-offs](../arquitetura/tr
 | RNF09 Um comando | ✅ | job `containers` do CI |
 | RNF10 Sem segredos; sandbox | ✅ | gitleaks no CI sobre todo o histórico |
 
-**Números de qualidade:** 94 testes na API, 23 no front, 4 E2E, 13 regras de arquitetura, 219 regras de lint, 0 vulnerabilidades conhecidas em dependências de produção (`pnpm audit`, 12/11/2026).
+**Números de qualidade:** 98 testes na API, 23 no front, 4 E2E, 13 regras de arquitetura, 219 regras de lint, 0 vulnerabilidades conhecidas em dependências de produção (`pnpm audit`, 12/11/2026).
 
 ## 11. Riscos e débitos técnicos
 [Registro de riscos (5W2H)](../riscos.md) e lacunas em [segurança](../seguranca.md#lacunas-conhecidas-priorizadas). Os principais débitos:
