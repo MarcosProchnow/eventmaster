@@ -1,3 +1,7 @@
 # Falsos positivos revisados: valores fictícios usados só em testes (não são credenciais).
 # Formato do gitleaks: <commit>:<arquivo>:<regra>:<linha>. Nunca adicione um segredo real aqui; remova-o e troque-o.
 # Atualizado em 17/11/2026 depois da reescrita do histórico (os SHAs dos commits mudaram).
+d69a3627bf41b2483b47e7ee397aed8af72e84ad:apps/web/test/auth.test.tsx:generic-api-key:88
+e8f5ba5d5771a5c20af42dcfde5ec1b7b30e70cc:apps/web/test/auth.test.tsx:generic-api-key:88
+0b8689e6d0e4dda7d6337b3b435d513ba8e95162:apps/api/test/orders-domain.test.ts:generic-api-key:89
+78c74324aca9484df01ec0aebad3c0d6cb942423:apps/api/test/orders-domain.test.ts:generic-api-key:89
