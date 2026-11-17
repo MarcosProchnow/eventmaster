@@ -10,6 +10,9 @@ const envSchema = z.object({
   // Endereços dos proxies confiáveis à frente da API, separados por vírgula (IPs, CIDRs ou
   // `loopback`, `uniquelocal`). Vazio = ignora X-Forwarded-For, que o cliente poderia forjar.
   TRUST_PROXY: z.string().trim().default(""),
+  // Outras origens aceitas além de WEB_ORIGIN, separadas por vírgula. Só a demonstração no Codespace usa:
+  // o proxy de portas dele às vezes entrega o Origin reescrito como http://localhost:8080.
+  EXTRA_WEB_ORIGINS: z.string().trim().default(""),
   // Vazio ou ausente = padrão do domínio. Acima do padrão só faz sentido em teste de carga.
   // Tentativas por minuto e IP em cadastro, login e refresh. Vazio = padrão (10). Só o teste de carga o aumenta.
   AUTH_RATE_LIMIT_MAX: z.preprocess(
@@ -33,6 +36,8 @@ export interface Config {
   cookieSecure: boolean;
   /** Proxies confiáveis; deles o IP do cliente (rate limit, logs) vem do X-Forwarded-For. */
   trustProxy: string | undefined;
+  /** Origens aceitas além de `webOrigin` (normalizadas); vazio em uso normal. */
+  extraWebOrigins: string[];
   /** Reservas aguardando pagamento por pessoa e evento; `undefined` usa o padrão do domínio. */
   maxActiveReservations: number | undefined;
   authRateLimitMax: number | undefined;
@@ -50,6 +55,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webOrigin: new URL(parsed.WEB_ORIGIN).origin,
     cookieSecure: parsed.NODE_ENV === "production",
     trustProxy: parsed.TRUST_PROXY || undefined,
+    extraWebOrigins: parsed.EXTRA_WEB_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean).map((o) => new URL(o).origin),
     maxActiveReservations: parsed.MAX_ACTIVE_RESERVATIONS,
     authRateLimitMax: parsed.AUTH_RATE_LIMIT_MAX,
   };

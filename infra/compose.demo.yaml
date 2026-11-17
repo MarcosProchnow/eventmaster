@@ -8,3 +8,16 @@ services:
   mailpit:
     ports: !override ["8025:8025"]
     restart: unless-stopped
+  api:
+    environment:
+      # A checagem de origem (CSRF, ADR 0009) compara o `Origin` do navegador com estas origens. O proxy de
+      # portas do Codespaces reescreve o host do Origin da própria URL pública para `localhost:8080`, mantendo
+      # o esquema: um navegador em https chega como https://localhost:8080 (observado em 17/11/2026; de dentro
+      # do Codespace chega como http://localhost:8080). Origens de outros sites NÃO são reescritas e continuam
+      # recusadas (403).
+      WEB_ORIGIN: ${PUBLIC_URL:?defina PUBLIC_URL (o infra/codespace-demo.sh faz isso)}
+      EXTRA_WEB_ORIGINS: https://localhost:8080,http://localhost:8080
+  worker:
+    environment:
+      # Links dos e-mails: a URL pública que o visitante realmente abre.
+      WEB_ORIGIN: ${PUBLIC_URL:?defina PUBLIC_URL (o infra/codespace-demo.sh faz isso)}

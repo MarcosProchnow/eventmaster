@@ -11,6 +11,7 @@ const app = await buildApp({
   webOrigin: config.webOrigin,
   cookieSecure: config.cookieSecure,
   trustProxy: config.trustProxy,
+  extraWebOrigins: config.extraWebOrigins,
   maxActiveReservations: config.maxActiveReservations,
   authRateLimitMax: config.authRateLimitMax,
   logger: true,

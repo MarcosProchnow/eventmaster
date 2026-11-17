@@ -46,7 +46,7 @@ cd ../web && pnpm run dev            # outro terminal: front em http://localhost
 ```
 Para aprovar um pagamento sandbox: `pnpm run sandbox:webhook <providerRef> approved` (o `providerRef` está em `payments.payments`). E-mails aparecem no Mailpit, em http://localhost:8025.
 
-**Demonstração no Codespace:** `infra/codespace-demo.sh` sobe a aplicação completa e a abre pela porta 8080 (privada). Limites e o que ela não é: [ADR 0014](docs/adr/0014-hospedagem.md).
+**Demonstração no Codespace:** `infra/codespace-demo.sh` sobe a aplicação completa e a abre pela porta 8080 (a visibilidade da porta é decisão do dono). Limites e o que ela não é: [ADR 0014](docs/adr/0014-hospedagem.md).
 
 **Imagens:** o CI publica `eventmaster-api` e `eventmaster-web` no GitHub Container Registry a cada push na `main` ([ADR 0014](docs/adr/0014-hospedagem.md)).
 

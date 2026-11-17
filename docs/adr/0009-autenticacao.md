@@ -32,3 +32,7 @@ A opção 3 foi rejeitada porque qualquer script na página lê o token. A opç�
 - Segredo HS256 único: quem o obtém forja tokens. Fica em variável de ambiente (`JWT_SECRET`, mínimo de 32 caracteres) e a API não sobe sem ele.
 - Ainda não há: confirmação de e-mail, recuperação de senha, bloqueio por conta, login social (OAuth2/OIDC) e forma de criar um admin. Ficam como evolução.
 - O Argon2 do `node:crypto` é recente no Node; convém confirmar o status de estabilidade na documentação da versão em uso antes de produção.
+
+## Origens extras (17/11/2026)
+A checagem de `Origin` compara com `WEB_ORIGIN` e, opcionalmente, com `EXTRA_WEB_ORIGINS` (lista separada por vírgula, normalizada no boot). Em uso normal a lista é vazia. Existe porque, atrás do proxy de portas do GitHub Codespaces, o navegador chega com `Origin` reescrito para `https://localhost:8080` ([ADR 0014](0014-hospedagem.md)). Cada origem extra é uma origem em que se confia para escrever na API: não acrescente nenhuma que não seja do próprio front.
+

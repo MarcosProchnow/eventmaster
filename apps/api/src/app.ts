@@ -45,6 +45,8 @@ export interface AppOptions {
   logger?: boolean;
   /** Endereços dos proxies confiáveis (ex.: "uniquelocal"); ausente = nenhum. */
   trustProxy?: string | undefined;
+  /** Outras origens aceitas nas requisições de escrita, além de `webOrigin`. */
+  extraWebOrigins?: string[] | undefined;
   /** Reservas aguardando pagamento por pessoa e evento; ausente = padrão do domínio. */
   maxActiveReservations?: number | undefined;
 }
@@ -173,9 +175,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // Defesa extra contra CSRF: um navegador sempre envia `Origin` em requisições
   // de escrita vindas de outro site. Clientes sem `Origin` (curl, testes) não
   // carregam cookies de terceiros.
+  const allowedOrigins = new Set([options.webOrigin, ...(options.extraWebOrigins ?? [])]);
   app.addHook("onRequest", async (request, reply) => {
     const origin = request.headers.origin;
-    if (!SAFE_METHODS.has(request.method) && origin && origin !== options.webOrigin) {
+    if (!SAFE_METHODS.has(request.method) && origin && !allowedOrigins.has(origin)) {
       return reply
         .code(403)
         .send({ error: { code: "forbidden", message: "Origem não permitida" } });
