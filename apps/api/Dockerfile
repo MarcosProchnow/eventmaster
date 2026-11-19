@@ -3,7 +3,7 @@
 # Build a partir da raiz do monorepo:  docker build -f apps/api/Dockerfile .
 
 # ---------- build: instala só as dependências de produção da API ----------
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 RUN npm install -g pnpm@12.16.1
 WORKDIR /repo
 # Só o lockfile: esta camada fica em cache enquanto as dependências não mudam.
@@ -14,7 +14,7 @@ COPY . .
 RUN pnpm --filter @eventmaster/api deploy --prod /out
 
 # ---------- runtime ----------
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 # Arquivos pertencem ao root e o processo roda como `node`: a aplicação não consegue alterar o próprio código.
