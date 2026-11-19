@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@eventmaster/api-client": "workspace:*",
-    "@hookform/resolvers": "7.0.5",
+    "@hookform/resolvers": "7.0.6",
     "@tanstack/react-query": "5.107.1",
     "qrcode.react": "4.2.0",
     "react": "19.3.1",
