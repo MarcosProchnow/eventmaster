@@ -12,13 +12,13 @@
   },
   "dependencies": {
     "@eventmaster/api-client": "workspace:*",
-    "@hookform/resolvers": "7.0.5",
-    "@tanstack/react-query": "5.107.1",
+    "@hookform/resolvers": "7.0.8",
+    "@tanstack/react-query": "5.108.3",
     "qrcode.react": "4.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-hook-form": "7.92.0",
-    "react-router": "8.5.1",
+    "react-router": "8.5.2",
     "zod": "4.6.7"
   },
   "devDependencies": {
